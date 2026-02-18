@@ -83,20 +83,13 @@ AGENT_NAME = "random_agent.py" # Nazwa pliku agenta
 
 AGENT_FILES = [
     "random_agent_seba.py",
-    "random_agent_seba.py",
-    "random_agent_seba.py",
-    "random_agent.py",
-    "random_agent.py",
     "random_agent.py",
 ]
 
 ARGUMENTS = [
     "2",
-    "2",
-    "2",
     None,
-    None,
-    None,
+
 ]
 
 ASSETS_BASE_PATH = os.path.join(current_file_dir, 'frontend', 'assets')
@@ -1096,6 +1089,11 @@ def main():
             # --- KROK 2: Wykonanie pełnego ticka silnika gry ---
             # Ta jedna metoda załatwia wszystko: zapytania do agentów, fizykę, zgony.
             tick_info = game_loop._process_game_tick()
+            # --- TEST: disable powerups completely ---
+            if game_loop.map_info and game_loop.map_info.powerup_list:
+                game_loop.map_info.powerup_list.clear()
+
+            
             current_tick = tick_info["tick"]
 
             # --- KROK 3: Przetwarzanie wyników fizyki dla celów wizualnych ---

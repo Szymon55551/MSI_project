@@ -24,6 +24,10 @@ import math
 import json
 import heapq
 
+RECENT_TICKS_GRAPH = 5
+MAX_PATH_STUCK_TICKS = 100
+NO_MOVE_LIMIT_TICKS = 300
+
 # Add paths for imports
 current_dir = os.path.dirname(os.path.abspath(__file__))
 controller_dir = os.path.join(os.path.dirname(current_dir), '02_FRAKCJA_SILNIKA', 'controller')
@@ -40,7 +44,7 @@ import uvicorn
 
 TILE_SIZE = 10.0
 SUBDIV = 3
-EVAL_EVERY = 200
+EVAL_EVERY = 1000
 
 #########################
 #Params
@@ -157,8 +161,8 @@ class RandomAgent:
         self.no_move_ticks = 0
         self.force_change_goal = False
 
-        self.MIN_MOVE_EPS = 0.25
-        self.NO_MOVE_LIMIT_TICKS = 10
+        self.MIN_MOVE_EPS = 1
+        self.NO_MOVE_LIMIT_TICKS = NO_MOVE_LIMIT_TICKS
         
         self.mode = "search"
         self.last_eval_tick = -10_000
@@ -206,7 +210,7 @@ class RandomAgent:
         self.current_tick = 0
         self.movement_list = []
         self.map_memory = {}       
-        self.obstacle_memory = set() 
+        self.obstacle_memory = {}
         
     
         #### Stan czołgu - podjęcie akcji 
@@ -880,8 +884,10 @@ class RandomAgent:
             speed = float(t.get("speed_modifier", 1.0))
             
             # Save every sub-cell to memory
+            now = self.current_tick  # after you set it in get_action
+
             for cell in self._stamp_tile_center_to_subcells(cx, cy):
-                self.map_memory[cell] = {"dmg": dmg, "speed": speed}
+                self.map_memory[cell] = {"dmg": dmg, "speed": speed, "last_seen_tick": now}
     
         # 2. Memorize Obstacles (Walls)
         current_obstacles = self._get(sensors, 'seen_obstacles', [])
@@ -890,8 +896,9 @@ class RandomAgent:
             cx, cy = float(pos.get("x", 0.0)), float(pos.get("y", 0.0))
             
             # Save walls to memory
+            now = self.current_tick
             for cell in self._stamp_tile_center_to_subcells(cx, cy):
-                self.obstacle_memory.add(cell)
+                self.obstacle_memory[cell] = now
         # -----------------------------------------------
         
         # Process meta info and memory
@@ -1061,118 +1068,94 @@ class RandomAgent:
 
             return 0.0
     
-
-    def _divide_seen_area(self, visible_obstacles, visible_terrains): 
-        """
-        Zwraca listę węzłów (GridNode). Każdy węzeł ma:
-        - dmg, speed, blocked
-        - neighbors 4-kierunkowo (tylko jeśli istnieją)
-        - dist_to_me policzone od razu (na podstawie aktualnej pozycji czołgu)
-        
-        Dodatkowo nie pozwala na to aby czolg jechal doslownie jeden piksel obok np. bagna i szural po nim (spowalnial sie)
-        """    
-    
-        my_pos = self.dynamic_info.get("position", {"x": 0.0, "y": 0.0})
+    def _divide_seen_area(self, visible_obstacles, visible_terrains):
+        # --- current position ---
+        my_pos = self.dynamic_info.get("position") or {"x": 0.0, "y": 0.0}
         me_x = float(my_pos.get("x", 0.0))
         me_y = float(my_pos.get("y", 0.0))
-        my_id = self.static_info.get("id")
-    
-        # 1. Mapowanie terenu Z PAMIĘCI (FROM MEMORY)
-        # We iterate over self.map_memory instead of visible_terrains
+
+        # --- cutoff for "recent" ---
+        recent_cutoff = int(self.current_tick) - int(RECENT_TICKS_GRAPH)
+
+        # --- only terrain seen recently ---
+        terrain_info = {
+            cell: info for cell, info in self.map_memory.items()
+            if int(info.get("last_seen_tick", -10_000)) >= recent_cutoff
+        }
+
+        # classify bad terrain (damage or slow)
         bad_terrain_cells = set()
-        
-        # Use memory for terrain info
-        terrain_info = self.map_memory 
-    
-        # Identify bad terrain from memory
         for cell, info in terrain_info.items():
-            if info["dmg"] > 0 or info["speed"] < 0.9:
+            dmg = int(info.get("dmg", 0))
+            spd = float(info.get("speed", 1.0))
+            if dmg > 0 or spd < 0.9:
                 bad_terrain_cells.add(cell)
-    
-        # 2. Blokady Z PAMIĘCI (FROM MEMORY)
+
+        # --- only obstacles seen recently ---
+        recent_obstacle_cells = {
+            cell for cell, t in self.obstacle_memory.items()
+            if int(t) >= recent_cutoff
+        }
+
+        # --- blocked cells (optionally inflated) ---
         blocked_cells = set()
-        inflate_walls = 0
-        
-        # Use memory for obstacles
-        for cell in self.obstacle_memory:
+        inflate_walls = 0  # increase to 1..2 if you want clearance from walls
+        for (cx, cy) in recent_obstacle_cells:
             for dx in range(-inflate_walls, inflate_walls + 1):
                 for dy in range(-inflate_walls, inflate_walls + 1):
-                    blocked_cells.add((cell[0] + dx, cell[1] + dy))
-        
-        for ob in visible_obstacles:
-            pos = ob.get("position", {})
-            cx, cy = float(pos.get("x", 0.0)), float(pos.get("y", 0.0))
-            for cell in self._stamp_tile_center_to_subcells(cx, cy):
-                for dx in range(-inflate_walls, inflate_walls + 1):
-                    for dy in range(-inflate_walls, inflate_walls + 1):
-                        blocked_cells.add((cell[0] + dx, cell[1] + dy))
+                    blocked_cells.add((cx + dx, cy + dy))
 
+        # NOTE: you can still incorporate current visible obstacles here if you want,
+        # but the intent is to keep graph to recent memory only. Leaving as-is.
 
-        visible_tanks = self.dynamic_info.get("visible_tanks", [])
-        inflate_tanks = 2  
-        
-        for tank in visible_tanks:
-            # Ignorujemy samego siebie!
-            t_id = self._get(tank, "id", "")
-            if t_id == my_id:
-                continue
-
-            pos = self._get(tank, "position", {})
-            tx = float(self._get(pos, "x", 0.0))
-            ty = float(self._get(pos, "y", 0.0))
-            
-            # Traktujemy czołg jak przeszkodę i dodajemy do blocked_cells
-            for cell in self._stamp_tile_center_to_subcells(tx, ty):
-                for dx in range(-inflate_tanks, inflate_tanks + 1):
-                    for dy in range(-inflate_tanks, inflate_tanks + 1):
-                        blocked_cells.add((cell[0] + dx, cell[1] + dy))
-
-        # 3. Bufor Ryzyka (Inflacja Terenu) - to naprawi "Virtual Avoidance"
-        # Oznaczamy kratki SĄSIADUJĄCE z wodą/błotem jako ryzykowne
+        # --- risk buffer around bad terrain ---
         risk_cells = set()
-        for cx, cy in bad_terrain_cells:
-            # Promień 2 kratek (ok. 4 jednostki) od złego terenu
-            for dx in range(-2, 3):
-                for dy in range(-2, 3):
+        risk_radius = 2  # "safety buffer" size in SUBCELLS (i.e., sub-grid cells)
+        for (cx, cy) in bad_terrain_cells:
+            for dx in range(-risk_radius, risk_radius + 1):
+                for dy in range(-risk_radius, risk_radius + 1):
                     risk_cells.add((cx + dx, cy + dy))
 
-        nodes_by_cell = {}
-        # Domyślny teren (trawa)
-        default_info = {"dmg": 0, "speed": 1.0}
-
-        # Budowanie grafu - uwzględniamy też komórki z risk_cells i blocked_cells
-        # (żeby A* widział "brzeg" mapy, musimy iterować po wszystkich widocznych kafelkach + ich otoczce)
-        
+        # --- relevant cells we will build nodes for ---
         all_relevant_cells = set(terrain_info.keys()) | risk_cells
 
-        # FALLBACK: jeżeli pamięć terenu jest zbyt mała, dodaj okno wokół siebie
-        if len(all_relevant_cells) < 50:   # próg dobierz (np. 200-1000)
+        # fallback window if we have too few recent cells (prevents empty/disconnected graph)
+        if len(all_relevant_cells) < 50:
             me_cell = self._cell_from_xy(me_x, me_y)
-            R = 5  # promień w komórkach sub-grid (20 => 40x40=1600 nodes)
-            for dx in range(-R, R+1):
-                for dy in range(-R, R+1):
+            R = 5  # radius in sub-cells (=> (2R+1)^2 nodes)
+            for dx in range(-R, R + 1):
+                for dy in range(-R, R + 1):
                     all_relevant_cells.add((me_cell[0] + dx, me_cell[1] + dy))
-        
+
+        # --- default terrain for cells in risk buffer that weren't directly seen ---
+        default_info = {"dmg": 0, "speed": 1.0, "last_seen_tick": -10_000}
+
+        # --- build nodes ---
+        nodes_by_cell = {}
         for cell in all_relevant_cells:
             info = terrain_info.get(cell, default_info)
+
             wx, wy = self._cell_center(cell)
             dist = math.hypot(wx - me_x, wy - me_y)
+
+            dmg = int(info.get("dmg", 0))
+            spd = float(info.get("speed", 1.0))
 
             nodes_by_cell[cell] = GridNode(
                 cell=cell,
                 world=(wx, wy),
-                dmg=int(info["dmg"]),
-                speed=float(info["speed"]),
+                dmg=dmg,
+                speed=spd,
                 blocked=(cell in blocked_cells),
                 dist_to_me=dist,
-                is_risk=(cell in risk_cells and cell not in bad_terrain_cells), # Jest blisko, ale to nie samo błoto
+                is_risk=(cell in risk_cells and cell not in bad_terrain_cells),
                 neighbors=[]
             )
 
-        DIRS4 = [(1,0),(-1,0),(0,1),(0,-1),(1,1),(1,-1),(-1,1),(-1,-1)]
-        for cell, node in nodes_by_cell.items():
-            x, y = cell
-            for dx, dy in DIRS4:
+        # --- connectivity (8-neighborhood as in your current code) ---
+        DIRS8 = [(1,0), (-1,0), (0,1), (0,-1), (1,1), (1,-1), (-1,1), (-1,-1)]
+        for (x, y), node in nodes_by_cell.items():
+            for dx, dy in DIRS8:
                 nb = (x + dx, y + dy)
                 if nb in nodes_by_cell:
                     node.neighbors.append(nb)
@@ -1361,7 +1344,11 @@ class RandomAgent:
         # warunki "reached"
         reach_threshold = self.CELL_SIZE * 1
         reached_by_distance = dist <= reach_threshold
-        reached_by_timeout = self.path_stuck_ticks >= 100
+        reached_by_timeout = self.path_stuck_ticks >= MAX_PATH_STUCK_TICKS
+        
+        if reached_by_distance:
+            self.no_move_ticks = 0
+            self.last_dist_to_wp = None
 
         if reached_by_distance or reached_by_timeout:
             if reached_by_timeout:
@@ -1401,7 +1388,7 @@ class RandomAgent:
             move_speed = top_speed
         else:
             #eśli kąt jest duży stoi w miejscu i tylko się obraca
-            move_speed = 0.0
+            move_speed = 0.5 * top_speed
 
         return heading_rotation_angle, move_speed
             
@@ -1418,7 +1405,7 @@ class RandomAgent:
             if ticks_since_last >= FORCE_REPLAN_EVERY:
                 return True
 
-            if self.path_stuck_ticks > 15:
+            if self.path_stuck_ticks > MAX_PATH_STUCK_TICKS:
                 return True
 
             return False
@@ -1466,6 +1453,10 @@ class RandomAgent:
         new_cost = None
 
         if eval_now:
+            print(f"[EVAL] tick={self.current_tick} force={force} "
+            f"stuck={self.path_stuck_ticks} no_move={self.no_move_ticks} "
+            f"path_end={(self.path_to_follow is None) or (self.path_index >= len(self.path_to_follow)-1)} "
+            f"override_changed={(override_goal_cell is not None and override_goal_cell != self.current_goal_cell)}")
             self.last_eval_tick = self.current_tick
 
             new_path, new_goal, new_cost, node_by_cell = self._Find_Target_and_Find_Path(
@@ -1526,9 +1517,9 @@ class RandomAgent:
                     self.path_index = 0
                     self.path_stuck_ticks = 0
 
-                    if self.force_change_goal:
-                        self.force_change_goal = False
-                        self.no_move_ticks = 0
+                    self.force_change_goal = False
+                    self.no_move_ticks = 0
+                    self.last_world_pos = None  
 
                     print(
                         f"[REPLAN] tick={self.current_tick} "
@@ -1606,7 +1597,7 @@ class RandomAgent:
     
     def _process_action(self) -> ActionCommand:
         
-        
+        print(self.no_move_ticks)
         MODE = self.mode
 
          # --- update attack memory if enemy visible ---
