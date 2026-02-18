@@ -429,6 +429,16 @@ def fire_projectile(
                 if obstacle.is_destructible:
                     obstacle.is_alive = False
                 break
+            
+    if final_hit is None:
+        # tracer do końca zasięgu
+        rng = ammo_range if ammo else 1000.0
+        ang = math.radians(shoot_direction)
+        end_pos = Position(
+            tank.position.x + math.cos(ang) * rng,
+            tank.position.y + math.sin(ang) * rng
+        )
+        return ProjectileHit(shooter_id=tank._id, hit_position=end_pos, damage_dealt=0)
 
     return final_hit
 

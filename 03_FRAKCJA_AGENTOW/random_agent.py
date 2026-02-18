@@ -131,6 +131,7 @@ class RandomAgent:
         if self.move_timer <= 0:
             self.current_move_speed = random.choice([30.0, 30.0, 0.0, -10.0])
             self.move_timer = random.randint(1, 10)
+            
         
         return ActionCommand(
             barrel_rotation_angle=barrel_rotation,

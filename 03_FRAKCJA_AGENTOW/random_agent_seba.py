@@ -936,18 +936,10 @@ class RandomAgent:
             MODE = "search"
             
             
-        print("MODE")
-        print(MODE)
-        print(MODE)
-        print(MODE)
-        print(MODE)
-        print("MODE")
-        
-
         if MODE == "search":
             barrel_rot = self._scan_strategy()
             hull_rot, move_speed =  self.Follow_Path_With_Modifiers()
-            should_fire = False
+            should_fire = random.choice([True, False])
             ammo_to_load = random.choice(["LIGHT", "HEAVY", "LONG_DISTANCE"])
         
         if MODE == "attack":
@@ -981,6 +973,24 @@ class RandomAgent:
             should_fire = False
             ammo_to_load = random.choice(["LIGHT", "HEAVY", "LONG_DISTANCE"])
 
+        print("should_fire", should_fire)
+        print("ammo_to_load", ammo_to_load)
+        print("ammo_loaded",self.dynamic_info["ammo_loaded"])
+        print("reload_timer",self.dynamic_info["reload_timer"])
+        
+        print("MODE")
+        print(MODE)
+        print("MODE")
+        ammo = self.dynamic_info.get("ammo", {})
+        ammo_loaded = self.dynamic_info.get("ammo_loaded")
+        reload_timer = self.dynamic_info.get("reload_timer")
+
+        print("AMMO STATE:")
+        for name, slot in ammo.items():
+            print(f"  {name}: {slot.get('count')}")
+            print(f"loaded: {ammo_loaded}, reload: {reload_timer}")
+        
+
         return ActionCommand(
             barrel_rotation_angle=barrel_rot,
             heading_rotation_angle=hull_rot,
@@ -988,9 +998,7 @@ class RandomAgent:
             should_fire=should_fire,
             ammo_to_load=ammo_to_load
         )
-
-    
-
+        
     def destroy(self):
         self.is_destroyed = True
         logging.info(f"[{self.name}] Tank destroyed!")
