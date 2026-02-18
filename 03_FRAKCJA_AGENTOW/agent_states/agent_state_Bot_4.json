@@ -1,0 +1,1505 @@
+{
+    "current_tick": 148,
+    "static_info": {
+        "id": "tank_2_1",
+        "team": 2,
+        "tank_type": "HEAVY",
+        "vision_angle": 60.0,
+        "vision_range": 40.0,
+        "top_speed": 1.0,
+        "barrel_spin_rate": 30,
+        "heading_spin_rate": 2,
+        "max_hp": 120,
+        "max_shield": 80
+    },
+    "dynamic_info": {
+        "hp": 120,
+        "shield": 80,
+        "position": {
+            "x": 138.87724497992096,
+            "y": 15.749577255990056
+        },
+        "move_speed": 1.0,
+        "barrel_angle": 45.0,
+        "heading": 146.32092055003767,
+        "ammo": {
+            "HEAVY": {
+                "count": 5,
+                "_ammo_type": "HEAVY"
+            },
+            "LIGHT": {
+                "count": 10,
+                "_ammo_type": "LIGHT"
+            },
+            "LONG_DISTANCE": {
+                "count": 2,
+                "_ammo_type": "LONG_DISTANCE"
+            }
+        },
+        "ammo_loaded": "HEAVY",
+        "is_overcharged": false,
+        "size": "MISSING",
+        "reload_timer": 0.0,
+        "enemies_remaining": 3,
+        "visible_tanks": [],
+        "visible_enemies": [],
+        "visible_obstacles": [
+            {
+                "id": "37178c19-6061-4709-bef9-e8cd17772357",
+                "position": {
+                    "x": 125.0,
+                    "y": 15.0
+                },
+                "type": "TREE",
+                "is_destructible": true
+            }
+        ],
+        "visible_terrains": [
+            {
+                "position": {
+                    "x": 125.0,
+                    "y": 5.0
+                },
+                "type": "Road",
+                "speed_modifier": 1.5,
+                "dmg": 0
+            },
+            {
+                "position": {
+                    "x": 135.0,
+                    "y": 15.0
+                },
+                "type": "Road",
+                "speed_modifier": 1.5,
+                "dmg": 0
+            }
+        ],
+        "visible_powerups": []
+    },
+    "meta_info": {
+        "is_aimed_at": false,
+        "closest_enemy_angle": 0.0,
+        "closest_enemy_dist": 707,
+        "target_id": null
+    },
+    "memory": {},
+    "debug": {
+        "goal_cell": [
+            39,
+            17
+        ],
+        "path": [
+            [
+                41,
+                4
+            ],
+            [
+                40,
+                5
+            ],
+            [
+                40,
+                6
+            ],
+            [
+                39,
+                7
+            ],
+            [
+                40,
+                8
+            ],
+            [
+                39,
+                9
+            ],
+            [
+                40,
+                10
+            ],
+            [
+                39,
+                11
+            ],
+            [
+                40,
+                12
+            ],
+            [
+                39,
+                13
+            ],
+            [
+                40,
+                14
+            ],
+            [
+                39,
+                15
+            ],
+            [
+                40,
+                16
+            ],
+            [
+                39,
+                17
+            ]
+        ],
+        "path_index": 0,
+        "seen_terrain_tiles": [
+            [
+                12,
+                0
+            ],
+            [
+                13,
+                1
+            ]
+        ],
+        "my_pos": {
+            "x": 138.87724497992096,
+            "y": 15.749577255990056
+        },
+        "fov": {
+            "tick": 148,
+            "origin": {
+                "x": 138.87724497992096,
+                "y": 15.749577255990056
+            },
+            "vr": 40.0,
+            "va": 60.0,
+            "heading": 146.32092055003767,
+            "cells": [
+                [
+                    30,
+                    5
+                ],
+                [
+                    30,
+                    6
+                ],
+                [
+                    30,
+                    7
+                ],
+                [
+                    30,
+                    8
+                ],
+                [
+                    31,
+                    5
+                ],
+                [
+                    31,
+                    6
+                ],
+                [
+                    31,
+                    7
+                ],
+                [
+                    31,
+                    8
+                ],
+                [
+                    31,
+                    9
+                ],
+                [
+                    31,
+                    10
+                ],
+                [
+                    32,
+                    5
+                ],
+                [
+                    32,
+                    6
+                ],
+                [
+                    32,
+                    7
+                ],
+                [
+                    32,
+                    8
+                ],
+                [
+                    32,
+                    9
+                ],
+                [
+                    32,
+                    10
+                ],
+                [
+                    32,
+                    11
+                ],
+                [
+                    33,
+                    5
+                ],
+                [
+                    33,
+                    6
+                ],
+                [
+                    33,
+                    7
+                ],
+                [
+                    33,
+                    8
+                ],
+                [
+                    33,
+                    9
+                ],
+                [
+                    33,
+                    10
+                ],
+                [
+                    33,
+                    11
+                ],
+                [
+                    33,
+                    12
+                ],
+                [
+                    33,
+                    13
+                ],
+                [
+                    34,
+                    5
+                ],
+                [
+                    34,
+                    6
+                ],
+                [
+                    34,
+                    7
+                ],
+                [
+                    34,
+                    8
+                ],
+                [
+                    34,
+                    9
+                ],
+                [
+                    34,
+                    10
+                ],
+                [
+                    34,
+                    11
+                ],
+                [
+                    34,
+                    12
+                ],
+                [
+                    34,
+                    13
+                ],
+                [
+                    35,
+                    5
+                ],
+                [
+                    35,
+                    6
+                ],
+                [
+                    35,
+                    7
+                ],
+                [
+                    35,
+                    8
+                ],
+                [
+                    35,
+                    9
+                ],
+                [
+                    35,
+                    10
+                ],
+                [
+                    35,
+                    11
+                ],
+                [
+                    35,
+                    12
+                ],
+                [
+                    35,
+                    13
+                ],
+                [
+                    35,
+                    14
+                ],
+                [
+                    36,
+                    5
+                ],
+                [
+                    36,
+                    6
+                ],
+                [
+                    36,
+                    7
+                ],
+                [
+                    36,
+                    8
+                ],
+                [
+                    36,
+                    9
+                ],
+                [
+                    36,
+                    10
+                ],
+                [
+                    36,
+                    11
+                ],
+                [
+                    36,
+                    12
+                ],
+                [
+                    36,
+                    13
+                ],
+                [
+                    36,
+                    14
+                ],
+                [
+                    37,
+                    5
+                ],
+                [
+                    37,
+                    6
+                ],
+                [
+                    37,
+                    7
+                ],
+                [
+                    37,
+                    8
+                ],
+                [
+                    37,
+                    9
+                ],
+                [
+                    37,
+                    10
+                ],
+                [
+                    37,
+                    11
+                ],
+                [
+                    37,
+                    12
+                ],
+                [
+                    38,
+                    5
+                ],
+                [
+                    38,
+                    6
+                ],
+                [
+                    38,
+                    7
+                ],
+                [
+                    38,
+                    8
+                ],
+                [
+                    38,
+                    9
+                ],
+                [
+                    38,
+                    10
+                ],
+                [
+                    39,
+                    5
+                ],
+                [
+                    39,
+                    6
+                ],
+                [
+                    39,
+                    7
+                ],
+                [
+                    39,
+                    8
+                ],
+                [
+                    40,
+                    5
+                ],
+                [
+                    40,
+                    6
+                ]
+            ],
+            "bbox": [
+                29,
+                -8,
+                53,
+                16
+            ],
+            "rays": [
+                {
+                    "from": {
+                        "x": 138.87724497992096,
+                        "y": 15.749577255990056
+                    },
+                    "to": {
+                        "x": 121.14130507613899,
+                        "y": 51.602560893749335
+                    }
+                },
+                {
+                    "from": {
+                        "x": 138.87724497992096,
+                        "y": 15.749577255990056
+                    },
+                    "to": {
+                        "x": 98.95968039626263,
+                        "y": 18.31629455820038
+                    }
+                }
+            ]
+        },
+        "graph_nodes": [
+            {
+                "cell": [
+                    37,
+                    0
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    40,
+                    17
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    36,
+                    7
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    37,
+                    6
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    42,
+                    2
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    41,
+                    0
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    41,
+                    9
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    43,
+                    6
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    42,
+                    8
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    44,
+                    5
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    43,
+                    3
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    41,
+                    15
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    38,
+                    7
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    40,
+                    4
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    39,
+                    2
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    40,
+                    1
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    40,
+                    13
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    39,
+                    11
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    40,
+                    10
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    37,
+                    2
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    36,
+                    0
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    39,
+                    17
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    37,
+                    8
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    42,
+                    4
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    41,
+                    2
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    42,
+                    1
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    41,
+                    11
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    43,
+                    8
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    41,
+                    8
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    43,
+                    5
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    44,
+                    7
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    38,
+                    0
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    41,
+                    17
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    40,
+                    6
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    39,
+                    4
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    38,
+                    6
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    40,
+                    3
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    39,
+                    13
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    40,
+                    12
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    39,
+                    10
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    36,
+                    2
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    37,
+                    1
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    36,
+                    8
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    41,
+                    4
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    43,
+                    1
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    42,
+                    3
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    41,
+                    1
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    44,
+                    0
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    41,
+                    13
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    41,
+                    10
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    43,
+                    7
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    38,
+                    2
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    39,
+                    6
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    38,
+                    8
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    40,
+                    5
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    39,
+                    3
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    39,
+                    15
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    40,
+                    14
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    39,
+                    12
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    36,
+                    1
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    41,
+                    6
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    42,
+                    5
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    41,
+                    3
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    43,
+                    0
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    44,
+                    2
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    41,
+                    12
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    44,
+                    8
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    38,
+                    1
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    39,
+                    8
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    40,
+                    7
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    39,
+                    5
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    40,
+                    16
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    39,
+                    14
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    36,
+                    6
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    42,
+                    7
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    41,
+                    5
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    43,
+                    2
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    44,
+                    4
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    44,
+                    1
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    41,
+                    14
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    39,
+                    1
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    40,
+                    0
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    40,
+                    9
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    39,
+                    7
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    39,
+                    16
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    40,
+                    15
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    37,
+                    7
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    42,
+                    0
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    41,
+                    7
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    43,
+                    4
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    42,
+                    6
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    44,
+                    3
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    44,
+                    6
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    41,
+                    16
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    40,
+                    2
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    39,
+                    0
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    40,
+                    11
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    39,
+                    9
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            },
+            {
+                "cell": [
+                    40,
+                    8
+                ],
+                "blocked": false,
+                "dmg": 0,
+                "speed": 1.5,
+                "is_risk": false
+            }
+        ],
+        "start_cell": [
+            41,
+            4
+        ],
+        "goal_cell_candidate": [
+            39,
+            17
+        ]
+    }
+}

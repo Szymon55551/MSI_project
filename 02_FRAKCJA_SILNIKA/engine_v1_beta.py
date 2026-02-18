@@ -75,7 +75,7 @@ AMMO_RANGE_WORLD = {
 # --- Stałe Konfiguracyjne Grafiki ---
 LOG_LEVEL = "DEBUG"
 #MAP_SEED = "road_trees.csv"
-MAP_SEED = "road_trees.csv"
+MAP_SEED = "advanced_road_trees.csv"
 TARGET_FPS = 60
 SCALE = 3.5 # Współczynnik skalowania grafiki (wszystko będzie 4x większe)
 TILE_SIZE = 10  # To MUSI być zgodne z domyślną wartością w map_loader.py
@@ -83,12 +83,12 @@ AGENT_NAME = "random_agent.py" # Nazwa pliku agenta
 
 AGENT_FILES = [
     "random_agent_seba.py",
-    "random_agent_seba.py",
+    "random_agent.py",
 ]
 
 ARGUMENTS = [
     "2",
-    "2",
+    None,
 ]
 
 ASSETS_BASE_PATH = os.path.join(current_file_dir, 'frontend', 'assets')
