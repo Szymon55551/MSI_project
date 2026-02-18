@@ -63,8 +63,6 @@ except ImportError as e:
 # --- DEBUG: predicted shot rays (max range) ---
 PREDICTED_SHOTS = []   # list of dicts: {"start": (sx,sy), "end": (ex,ey), "life": int, "dist_world": float, "ammo": str}
 
-# Jeśli chcesz "zostajemy w pixelach/world units", to range też musi być w world units.
-# Ustaw to na to, co Twoim zdaniem jest specem silnika.
 AMMO_RANGE_WORLD = {
     "HEAVY": 25.0,
     "LIGHT": 50.0,
@@ -136,12 +134,6 @@ def draw_shot_debug_cone_and_hitdot(
     map_h: int,
     angle_eps_deg: float = 5.0,
 ):
-    """
-    Wizualizacja dokładnie pod aktualne fire_projectile():
-    - strzał trafia gdy abs(angle_to_target - shoot_direction) <= angle_eps_deg
-    - wybieramy najbliższy w zasięgu
-    - celowanie jest do CENTER (Position) celu
-    """
 
     # tylko jeśli agent kazał strzelać w tym ticku
     act = agent_actions.get(shooter._id)
@@ -274,8 +266,6 @@ def draw_fov_overlay(map_surface, fov_dbg, scale, map_h, alpha=80):
 
     overlay = pygame.Surface(map_surface.get_size(), pygame.SRCALPHA)
 
-    # 1) wypełnienie sub-komórek w FOV (zielony półprzezroczysty)
-    # rysujemy jako małe recty w skali SUBDIV
     cell_px = int(CELL_SIZE * scale)
 
     for c in cells:
@@ -313,7 +303,6 @@ def draw_graph_nodes(map_surface, debug, scale, map_h, fov_dbg=None, alpha=120):
     if not nodes:
         return
 
-    # FOV musi iść "z silnika"/agenta -> bierzemy cells z debug["fov"] (albo z fov_dbg przekazanego z zewnątrz)
     fov = fov_dbg or debug.get("fov")
     fov_cells = set()
     if fov and fov.get("cells"):
@@ -354,7 +343,7 @@ def draw_start_goal(map_surface, debug, scale, map_h):
         return
 
     start = debug.get("start_cell")
-    goal  = debug.get("goal_cell_candidate")  # używamy “kandydata”
+    goal  = debug.get("goal_cell_candidate") 
 
     def draw_cell(cell, color, r=7):
         if not cell: 
@@ -629,7 +618,6 @@ def draw_tank(
         pygame.draw.rect(surface, (50, 50, 50), (hp_bar_x, hp_bar_y, hp_bar_width, hp_bar_height))
         pygame.draw.rect(surface, (0, 255, 0), (hp_bar_x, hp_bar_y, hp_bar_width * hp_ratio, hp_bar_height))
 
-    # --- NEW: Leader/Follower badge ---
     # role expected: "Leader" / "Follower" (or None)
     if role in ("Leader", "Follower"):
         badge_char = "L" if role == "Leader" else "F"
