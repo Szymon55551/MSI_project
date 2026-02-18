@@ -75,7 +75,7 @@ AMMO_RANGE_WORLD = {
 # --- Stałe Konfiguracyjne Grafiki ---
 LOG_LEVEL = "DEBUG"
 #MAP_SEED = "road_trees.csv"
-MAP_SEED = "advanced_road_trees.csv"
+MAP_SEED = "road_trees.csv"
 TARGET_FPS = 60
 SCALE = 3.5 # Współczynnik skalowania grafiki (wszystko będzie 4x większe)
 TILE_SIZE = 10  # To MUSI być zgodne z domyślną wartością w map_loader.py
@@ -83,11 +83,19 @@ AGENT_NAME = "random_agent.py" # Nazwa pliku agenta
 
 AGENT_FILES = [
     "random_agent_seba.py",
+    "random_agent_seba.py",
+    "random_agent_seba.py",
+    "random_agent.py",
+    "random_agent.py",
     "random_agent.py",
 ]
 
 ARGUMENTS = [
     "2",
+    "2",
+    "2",
+    None,
+    None,
     None,
 ]
 
@@ -285,7 +293,7 @@ def draw_fov_overlay(map_surface, fov_dbg, scale, map_h, alpha=80):
 
         px_left = int(world_left * scale)
         px_top  = int(map_h - ((world_bottom + CELL_SIZE) * scale))
-        pygame.draw.rect(overlay, (0, 255, 0, alpha), (px_left, px_top, cell_px, cell_px))
+        # pygame.draw.rect(overlay, (0, 255, 0, alpha), (px_left, px_top, cell_px, cell_px))
 
     # 2) promienie graniczne (żółte)
     ox = float(origin["x"]); oy = float(origin["y"])
@@ -327,15 +335,14 @@ def draw_graph_nodes(map_surface, debug, scale, map_h, fov_dbg=None, alpha=120):
         in_fov = (cx, cy) in fov_cells
         blocked = bool(n.get("blocked", False))
 
-        # === Twoja logika kolorów ===
         if blocked and not in_fov:
             col = (255, 0, 0, alpha)          # czerwone = blocked poza FOV
         elif (not blocked) and not in_fov:
             col = (0, 120, 255, alpha)        # niebieskie = free poza FOV
         elif blocked and in_fov:
-            col = (255, 165, 0, alpha)        # pomarańczowe = blocked w FOV
+            col = (255, 165, 0, alpha)       # pomarańczowe = blocked w FOV
         else:
-            col = (0, 255, 0, alpha)          # zielone = free w FOV
+            col = (0, 120, 255, alpha) 
 
         world_left = cx * CELL_SIZE
         world_bottom = cy * CELL_SIZE
@@ -556,7 +563,14 @@ def load_assets():
     print("--- Ładowanie zakończone ---")
     return assets
 
-def draw_tank(surface: pygame.Surface, tank: Tank, assets: Dict, scale: int, map_height: int):
+def draw_tank(
+    surface: pygame.Surface,
+    tank: Tank,
+    assets: Dict,
+    scale: int,
+    map_height: int,
+    role: str = None,  # NEW: "Leader"/"Follower" or None
+):
     """Rysuje pojedynczy czołg (żywy lub wrak) na ekranie z uwzględnieniem skali i odwróconej osi Y."""
     tank_assets = assets['tanks'].get(tank._tank_type)
     if not tank_assets:
@@ -574,8 +588,7 @@ def draw_tank(surface: pygame.Surface, tank: Tank, assets: Dict, scale: int, map
         body_img.set_alpha(100)  # Półprzezroczysty wrak
 
     # Obrót: Kąty w silniku rosną zgodnie z zegarem, a w Pygame przeciwnie.
-    # Dlatego obracamy o wartość ujemną.
-    # Dodatkowe -90 stopni, ponieważ assety są skierowane w lewo (180 deg), a nie w górę (90 deg).
+    # Dodatkowe -180 stopni, bo assety są skierowane w lewo.
     BODY_OFFSET = 0
     rotated_body = pygame.transform.rotate(body_img, tank.heading + BODY_OFFSET)
     body_rect = rotated_body.get_rect(center=center_pos)
@@ -585,9 +598,9 @@ def draw_tank(surface: pygame.Surface, tank: Tank, assets: Dict, scale: int, map
     mask_body_img = tank_assets['mask_body'].copy()
     if not is_alive:
         mask_body_img.set_alpha(100)
-    # Zgodnie z map_generation_scratchpad.py dla poprawnego kolorowania
+
     color_layer = pygame.Surface(mask_body_img.get_size())
-    color_layer.fill(team_color) # Użyj koloru drużyny
+    color_layer.fill(team_color)
     color_layer.blit(mask_body_img, (0, 0), special_flags=pygame.BLEND_RGB_MULT)
     color_layer.set_colorkey((0, 0, 0))
     rotated_mask = pygame.transform.rotate(color_layer, -tank.heading - 180)
@@ -597,7 +610,6 @@ def draw_tank(surface: pygame.Surface, tank: Tank, assets: Dict, scale: int, map
     if is_alive:
         # --- Wieża ---
         turret_img = tank_assets['turret']
-        # Kąt lufy jest względny do kadłuba, więc sumujemy kąty.
         total_turret_angle = tank.heading + tank.barrel_angle
         rotated_turret = pygame.transform.rotate(turret_img, -total_turret_angle - 180)
         turret_rect = rotated_turret.get_rect(center=center_pos)
@@ -606,7 +618,7 @@ def draw_tank(surface: pygame.Surface, tank: Tank, assets: Dict, scale: int, map
         # Maska koloru wieży
         mask_turret_img = tank_assets['mask_turret']
         turret_color_layer = pygame.Surface(mask_turret_img.get_size())
-        turret_color_layer.fill(team_color) # Użyj koloru drużyny
+        turret_color_layer.fill(team_color)
         turret_color_layer.blit(mask_turret_img, (0, 0), special_flags=pygame.BLEND_RGB_MULT)
         turret_color_layer.set_colorkey((0, 0, 0))
         rotated_turret_mask = pygame.transform.rotate(turret_color_layer, -total_turret_angle - 180)
@@ -617,16 +629,39 @@ def draw_tank(surface: pygame.Surface, tank: Tank, assets: Dict, scale: int, map
         hp_bar_width = 40
         hp_bar_height = 5
         hp_ratio = max(0, tank.hp / tank._max_hp)
-        # Pozycjonowanie paska HP nad czołgiem
+
         hp_bar_x = center_pos[0] - hp_bar_width / 2
-        hp_bar_y = center_pos[1] - (body_img.get_height() / 2) - 15 # Trochę wyżej
+        hp_bar_y = center_pos[1] - (body_img.get_height() / 2) - 15
+
         pygame.draw.rect(surface, (50, 50, 50), (hp_bar_x, hp_bar_y, hp_bar_width, hp_bar_height))
         pygame.draw.rect(surface, (0, 255, 0), (hp_bar_x, hp_bar_y, hp_bar_width * hp_ratio, hp_bar_height))
-        
-        # --- DEBUG: heading vector vs velocity vector ---
+
+    # --- NEW: Leader/Follower badge ---
+    # role expected: "Leader" / "Follower" (or None)
+    if role in ("Leader", "Follower"):
+        badge_char = "L" if role == "Leader" else "F"
+
+        # position above tank
+        bx = int(center_pos[0])
+        by = int(center_pos[1] - 35)
+
+        # colors (simple + readable)
+        bg = (0, 0, 0)
+        fg = (255, 255, 255)
+        ring = team_color  # ring matches team
+
+        pygame.draw.circle(surface, bg, (bx, by), 10)
+        pygame.draw.circle(surface, ring, (bx, by), 10, 2)
+
+        badge_font = pygame.font.Font(None, 20)
+        txt = badge_font.render(badge_char, True, fg)
+        rect = txt.get_rect(center=(bx, by))
+        surface.blit(txt, rect)
+
+    # --- DEBUG: heading vector vs velocity vector ---
     cx, cy = center_pos
 
-    # heading vector (world -> screen: y flipped, so angle sign negated like you already do)
+    # heading vector (world -> screen: y flipped)
     heading_len = 30
     theta = math.radians(-tank.heading)  # screen-space
     hx = cx + math.cos(theta) * heading_len
@@ -642,7 +677,6 @@ def draw_tank(surface: pygame.Surface, tank: Tank, assets: Dict, scale: int, map
         vy = tank.position.y - lasty
 
         # convert velocity to screen (flip y)
-        # world vy up -> screen vy down, so invert vy
         vxs = vx
         vys = -vy
 
@@ -654,6 +688,8 @@ def draw_tank(surface: pygame.Surface, tank: Tank, assets: Dict, scale: int, map
             pygame.draw.line(surface, (255, 255, 0), (cx, cy), (ex, ey), 2)  # yellow = motion
 
     prev_pos[pid] = (tank.position.x, tank.position.y)
+
+
 
 def draw_shot_effect(surface: pygame.Surface, start_pos: Dict, end_pos: Dict, life: int, scale: int, map_height: int):
     """Rysuje linię symbolizującą strzał z uwzględnieniem skali."""
@@ -1065,6 +1101,33 @@ def main():
             # --- KROK 3: Przetwarzanie wyników fizyki dla celów wizualnych ---
             physics_results = game_loop.last_physics_results
             agent_actions = getattr(game_loop, 'last_actions', {})
+            
+            
+            debug_by_tank_id = {}
+            role_by_tank_id = {}
+
+            sorted_tanks = sorted(game_loop.tanks.values(), key=lambda t: t._id)
+
+            for idx, tank in enumerate(sorted_tanks, start=1):
+                agent_name = f"Bot_{idx}"
+                state_path = os.path.join(AGENT_STATE_DIR, f"agent_state_{agent_name}.json")
+
+                try:
+                    with open(state_path, "r", encoding="utf-8") as f:
+                        st = json.load(f)
+
+                    debug_by_tank_id[tank._id] = st.get("debug")
+
+                    role = st.get("agent_role") or {}
+                    if role.get("enabled", False):
+                        role_by_tank_id[tank._id] = role.get("type")  # "Leader"/"Follower"
+                    else:
+                        role_by_tank_id[tank._id] = None
+
+                except Exception:
+                    debug_by_tank_id[tank._id] = None
+                    role_by_tank_id[tank._id] = None
+            # =============================================================
 
             # --- EFEKTY WIZUALNE STRZAŁÓW ---
 
@@ -1160,7 +1223,8 @@ def main():
 
             # Rysowanie czołgów
             for tank in game_loop.tanks.values():
-                draw_tank(map_surface, tank, assets, SCALE, map_render_height)
+                role = role_by_tank_id.get(tank._id)
+                draw_tank(map_surface, tank, assets, SCALE, map_render_height, role=role)
                 if tank.is_alive():
                     draw_tank_weapon_range(map_surface, tank, SCALE, map_render_height)
 
@@ -1176,20 +1240,33 @@ def main():
                 )
 
             # ===== DEBUG JSON: read per-agent file (agent_states/agent_state_Bot_X.json) =====
-            debug_by_tank_id = {}
-
             # Uwaga: Bot_1..Bot_N są tworzeni w Twoim launcherze w tej samej pętli co porty.
+            debug_by_tank_id = {}
+            role_by_tank_id = {}
+
             sorted_tanks = sorted(game_loop.tanks.values(), key=lambda t: t._id)
 
             for idx, tank in enumerate(sorted_tanks, start=1):
                 agent_name = f"Bot_{idx}"
                 state_path = os.path.join(AGENT_STATE_DIR, f"agent_state_{agent_name}.json")
+
                 try:
                     with open(state_path, "r", encoding="utf-8") as f:
                         st = json.load(f)
+
+                    # debug block
                     debug_by_tank_id[tank._id] = st.get("debug")
+
+                    # role block (NEW)
+                    role = st.get("agent_role") or {}
+                    if role.get("enabled", False):
+                        role_by_tank_id[tank._id] = role.get("type")
+                    else:
+                        role_by_tank_id[tank._id] = None
+
                 except Exception:
-                    pass
+                    debug_by_tank_id[tank._id] = None
+                    role_by_tank_id[tank._id] = None
 
             # Focus = dla kogo rysujemy overlay (na start: pierwszy tank)
             focus_tank_id = sorted_tanks[0]._id if sorted_tanks else None

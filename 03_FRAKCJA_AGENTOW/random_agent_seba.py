@@ -127,6 +127,9 @@ logging.info(f"Logging to: {LOG_PATH}")
 
 class RandomAgent:
     def __init__(self, name: str = "TestBot", modifier = None):
+                
+        self.tank_type = random.choices(population=["Leader", "Follower"],weights=[0.6, 0.4])[0]
+        self.tank_type_used = True
 
         
         self.powerup_target_cell = None
@@ -172,6 +175,13 @@ class RandomAgent:
         self.reached_points = None
         self.path_stuck_ticks =  0
         self.is_destroyed = False
+        
+        
+        # --- FOLLOWER: FRIEND TARGET MEMORY ---
+        self.friend_target_cell = None
+        self.friend_target_last_seen_tick = -10_000
+        self.friend_forget_after = 120  # ticks to remember last known friend position 
+        
         logging.info(f"[{self.name}] Agent initialized")
         
         
@@ -239,6 +249,64 @@ class RandomAgent:
         self.enemy_target_cell = self._cell_from_xy(ex, ey)
         self.enemy_target_last_seen_tick = now
         return enemy
+
+    def _furthest_visible_friend(self):
+            """Return furthest visible friendly tank (not me)."""
+            visible = self.dynamic_info.get("visible_tanks", []) or []
+            my_id = self.static_info.get("id")
+            my_team = self.static_info.get("team")
+
+            # friends = same team, not me
+            friends = []
+            for t in visible:
+                try:
+                    if self._get(t, "team", None) != my_team:
+                        continue
+                    if self._get(t, "id", None) == my_id:
+                        continue
+                    friends.append(t)
+                except:
+                    continue
+
+            if not friends:
+                return None
+
+            # choose max distance
+            return max(friends, key=lambda t: float(self._get(t, "distance", -1e9)))
+
+    def _update_friend_memory(self):
+        """If we see any friendly tank, remember the furthest one's cell."""
+        now = self.current_tick
+        f = self._furthest_visible_friend()
+        if f is None:
+            return None
+
+        pos = self._get(f, "position", {}) or {}
+        fx = float(self._get(pos, "x", 0.0))
+        fy = float(self._get(pos, "y", 0.0))
+
+        self.friend_target_cell = self._cell_from_xy(fx, fy)
+        self.friend_target_last_seen_tick = now
+        return f
+
+    def _maybe_forget_friend_target(self):
+        if self.friend_target_cell is None:
+            return
+        if (self.current_tick - self.friend_target_last_seen_tick) >= self.friend_forget_after:
+            self.friend_target_cell = None
+
+    def _select_friend_goal_cell(self):
+        """
+        Returns remembered friend cell if still valid.
+        Priority:
+        - refresh memory if visible
+        - otherwise keep remembered until forget_after
+        """
+        self._update_friend_memory()
+        self._maybe_forget_friend_target()
+        return self.friend_target_cell 
+
+
 
     def _should_stay_in_attack(self) -> bool:
         return self.current_tick <= self.attack_until_tick
@@ -617,6 +685,11 @@ class RandomAgent:
             "dynamic_info": self.dynamic_info,
             "meta_info": self.meta_info,
             "memory": self.memory,
+            
+            "agent_role": {
+                "type": self.tank_type,            
+                "enabled": bool(self.tank_type_used)
+            },
 
             "debug": {
                 "goal_cell": self.debug_goal_cell,
@@ -1556,16 +1629,28 @@ class RandomAgent:
             
         print("MODE")
         print(MODE)
-        print(MODE)
-        print(MODE)
-        print(MODE)
         print("MODE")
         
         
-
+        # if MODE == "search":
+        #     barrel_rot = self._scan_strategy()
+        #     hull_rot, move_speed =  self.Follow_Path_With_Modifiers()
+        #     should_fire = False
+        #     ammo_to_load = random.choice(["LIGHT", "HEAVY", "LONG_DISTANCE"])
+            
         if MODE == "search":
             barrel_rot = self._scan_strategy()
-            hull_rot, move_speed =  self.Follow_Path_With_Modifiers()
+
+            # --- FOLLOWER: override search target with furthest known friendly tank ---
+            if self.tank_type_used and self.tank_type == "Follower":
+                friend_goal = self._select_friend_goal_cell()
+                if friend_goal is not None:
+                    hull_rot, move_speed = self.Follow_Path_With_Modifiers(override_goal_cell=friend_goal)
+                else:
+                    hull_rot, move_speed = self.Follow_Path_With_Modifiers()
+            else:
+                hull_rot, move_speed = self.Follow_Path_With_Modifiers()
+
             should_fire = False
             ammo_to_load = random.choice(["LIGHT", "HEAVY", "LONG_DISTANCE"])
         
