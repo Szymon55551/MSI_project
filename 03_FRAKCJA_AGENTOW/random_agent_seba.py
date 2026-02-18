@@ -1599,6 +1599,7 @@ class RandomAgent:
         
         print(self.no_move_ticks)
         MODE = self.mode
+        SUBMODE = None
 
          # --- update attack memory if enemy visible ---
         enemy_now = self._update_attack_memory()
@@ -1608,9 +1609,9 @@ class RandomAgent:
 
         # --- MODE selection with attack commit ---
         if enemy_now is not None:
-            MODE = "attack"
+            MODE = "alert"
         elif self._should_stay_in_attack() and self.enemy_target_cell is not None:
-            MODE = "attack"
+            MODE = "alert"
         elif self.powerup_target_cell is not None:
             MODE = "power_up"
         elif self.dynamic_info["visible_powerups"]:
@@ -1674,105 +1675,117 @@ class RandomAgent:
                         
                         
                         
-        if MODE == "attack":
-            enemy = enemy_now if enemy_now is not None else self._closest_visible_enemy()
+        if MODE == "alert":
+            SUBMODE = "attack"
+            if SUBMODE == "attack":
+                enemy = enemy_now if enemy_now is not None else self._closest_visible_enemy()
 
-            # If no visible enemy: go to last known cell (optional), scan
-            if enemy is None:
-                barrel_rot = self._scan_strategy()
-                hull_rot, move_speed = self.Follow_Path_With_Modifiers(
-                    override_goal_cell=self.enemy_target_cell if self.enemy_target_cell is not None else None
-                )
-                return ActionCommand(
-                    barrel_rotation_angle=barrel_rot,
-                    heading_rotation_angle=hull_rot,
-                    move_speed=move_speed,
-                    should_fire=False,
-                    ammo_to_load="LONG_DISTANCE"
-                )
+                # If no visible enemy: go to last known cell (optional), scan
+                if enemy is None:
+                    barrel_rot = self._scan_strategy()
+                    hull_rot, move_speed = self.Follow_Path_With_Modifiers(
+                        override_goal_cell=self.enemy_target_cell if self.enemy_target_cell is not None else None
+                    )
+                    return ActionCommand(
+                        barrel_rotation_angle=barrel_rot,
+                        heading_rotation_angle=hull_rot,
+                        move_speed=move_speed,
+                        should_fire=False,
+                        ammo_to_load="LONG_DISTANCE"
+                    )
 
-            # ---------- DISTANCE (world units) ----------
-            dist_payload = float(self._get(enemy, "distance", 1e9))
+                # ---------- DISTANCE (world units) ----------
+                dist_payload = float(self._get(enemy, "distance", 1e9))
 
-            pos_my = self.dynamic_info.get("position") or {}
-            pos_enemy = self._get(enemy, "position", {}) or {}
+                pos_my = self.dynamic_info.get("position") or {}
+                pos_enemy = self._get(enemy, "position", {}) or {}
 
-            mx = float(self._get(pos_my, "x", 0.0))
-            my = float(self._get(pos_my, "y", 0.0))
-            ex = float(self._get(pos_enemy, "x", 0.0))
-            ey = float(self._get(pos_enemy, "y", 0.0))
+                mx = float(self._get(pos_my, "x", 0.0))
+                my = float(self._get(pos_my, "y", 0.0))
+                ex = float(self._get(pos_enemy, "x", 0.0))
+                ey = float(self._get(pos_enemy, "y", 0.0))
 
-            dist_real = math.hypot(ex - mx, ey - my)
+                dist_real = math.hypot(ex - mx, ey - my)
 
-            # Choose which dist you trust (they matched in your log)
-            dist = dist_real
+                # Choose which dist you trust (they matched in your log)
+                dist = dist_real
 
-            # ---------- DEBUG ----------
-            inv = self._ammo_inventory()
-            loaded = self._loaded_ammo_name()
+                # ---------- DEBUG ----------
+                inv = self._ammo_inventory()
+                loaded = self._loaded_ammo_name()
 
-            r_long = self._ammo_range_world("LONG_DISTANCE")
-            r_light = self._ammo_range_world("LIGHT")
-            r_heavy = self._ammo_range_world("HEAVY")
+                r_long = self._ammo_range_world("LONG_DISTANCE")
+                r_light = self._ammo_range_world("LIGHT")
+                r_heavy = self._ammo_range_world("HEAVY")
 
-            print("\n=== ATTACK DEBUG ===")
-            print("dist(payload)=", dist_payload, "dist(real)=", dist_real, "tiles≈", dist_real / self.TILE_SIZE)
-            print("loaded=", loaded, "inv=", inv)
-            print("ranges: LONG=", r_long, "LIGHT=", r_light, "HEAVY=", r_heavy)
-            print("reload_timer=", self.dynamic_info.get("reload_timer", None))
-            print("====================")
+                print("\n=== ATTACK DEBUG ===")
+                print("dist(payload)=", dist_payload, "dist(real)=", dist_real, "tiles≈", dist_real / self.TILE_SIZE)
+                print("loaded=", loaded, "inv=", inv)
+                print("ranges: LONG=", r_long, "LIGHT=", r_light, "HEAVY=", r_heavy)
+                print("reload_timer=", self.dynamic_info.get("reload_timer", None))
+                print("====================")
 
-            # ---------- PICK BEST AMMO (sniper -> light -> heavy) ----------
-            # pick first ammo that exists AND can reach current dist
-            desired = None
-            for a in ["LONG_DISTANCE", "LIGHT", "HEAVY"]:
-                if inv.get(a, 0) > 0 and self._ammo_range_world(a) >= dist:
-                    desired = a
-                    break
-
-            # if none can reach, still prefer loading something (sniper->light->heavy)
-            if desired is None:
+                # ---------- PICK BEST AMMO (sniper -> light -> heavy) ----------
+                # pick first ammo that exists AND can reach current dist
+                desired = None
                 for a in ["LONG_DISTANCE", "LIGHT", "HEAVY"]:
-                    if inv.get(a, 0) > 0:
+                    if inv.get(a, 0) > 0 and self._ammo_range_world(a) >= dist:
                         desired = a
                         break
 
-            if desired is None:
-                # no ammo at all
+                # if none can reach, still prefer loading something (sniper->light->heavy)
+                if desired is None:
+                    for a in ["LONG_DISTANCE", "LIGHT", "HEAVY"]:
+                        if inv.get(a, 0) > 0:
+                            desired = a
+                            break
+
+                if desired is None:
+                    # no ammo at all
+                    barrel_rot = self._aim_barrel_at_enemy(enemy)
+                    return ActionCommand(
+                        barrel_rotation_angle=barrel_rot,
+                        heading_rotation_angle=0.0,
+                        move_speed=0.0,
+                        should_fire=False,
+                        ammo_to_load=None
+                    )
+
+                # ---------- AIM ----------
                 barrel_rot = self._aim_barrel_at_enemy(enemy)
-                return ActionCommand(
-                    barrel_rotation_angle=barrel_rot,
-                    heading_rotation_angle=0.0,
-                    move_speed=0.0,
-                    should_fire=False,
-                    ammo_to_load=None
-                )
 
-            # ---------- AIM ----------
-            barrel_rot = self._aim_barrel_at_enemy(enemy)
+                # ---------- IF WRONG AMMO LOADED -> REQUEST RELOAD AND STOP MOVING ----------
+                # This prevents ramming while holding HEAVY when LONG is needed.
+                if loaded != desired:
+                    print(f"[ATTACK] switching ammo: loaded={loaded} -> desired={desired} (STOP)")
+                    return ActionCommand(
+                        barrel_rotation_angle=barrel_rot,
+                        heading_rotation_angle=0.0,
+                        move_speed=0.0,          # don't move while changing ammo
+                        should_fire=False,
+                        ammo_to_load=desired
+                    )
 
-            # ---------- IF WRONG AMMO LOADED -> REQUEST RELOAD AND STOP MOVING ----------
-            # This prevents ramming while holding HEAVY when LONG is needed.
-            if loaded != desired:
-                print(f"[ATTACK] switching ammo: loaded={loaded} -> desired={desired} (STOP)")
-                return ActionCommand(
-                    barrel_rotation_angle=barrel_rot,
-                    heading_rotation_angle=0.0,
-                    move_speed=0.0,          # don't move while changing ammo
-                    should_fire=False,
-                    ammo_to_load=desired
-                )
+                # ---------- IN RANGE: HOLD POSITION, SHOOT WHEN READY ----------
+                in_range = self._ammo_range_world(desired) >= dist
+                stop_dist = max(0.0, self._ammo_range_world(desired) - 0.75)  # standoff (tunable)
 
-            # ---------- IN RANGE: HOLD POSITION, SHOOT WHEN READY ----------
-            in_range = self._ammo_range_world(desired) >= dist
-            stop_dist = max(0.0, self._ammo_range_world(desired) - 0.75)  # standoff (tunable)
+                if in_range:
+                    can_fire = self._can_fire_at_enemy_with_range(enemy, desired, aim_tolerance_deg=5.0)
+                    print(f"[ATTACK] in_range={in_range} can_fire={can_fire} dist={dist:.2f} stop_dist={stop_dist:.2f}")
 
-            if in_range:
-                can_fire = self._can_fire_at_enemy_with_range(enemy, desired, aim_tolerance_deg=5.0)
-                print(f"[ATTACK] in_range={in_range} can_fire={can_fire} dist={dist:.2f} stop_dist={stop_dist:.2f}")
+                    # If close enough, never drive forward (prevents “creeping” into enemy)
+                    if dist <= stop_dist:
+                        return ActionCommand(
+                            barrel_rotation_angle=barrel_rot,
+                            heading_rotation_angle=0.0,
+                            move_speed=0.0,
+                            should_fire=bool(can_fire),
+                            ammo_to_load=desired
+                        )
 
-                # If close enough, never drive forward (prevents “creeping” into enemy)
-                if dist <= stop_dist:
+                    # Even if not at stop_dist yet: still don't A* if you're already in range.
+                    # Just wait/aim/reload without moving forward.
                     return ActionCommand(
                         barrel_rotation_angle=barrel_rot,
                         heading_rotation_angle=0.0,
@@ -1781,34 +1794,24 @@ class RandomAgent:
                         ammo_to_load=desired
                     )
 
-                # Even if not at stop_dist yet: still don't A* if you're already in range.
-                # Just wait/aim/reload without moving forward.
+                # ---------- OUT OF RANGE -> ONLY THEN A* TOWARDS ENEMY ----------
+                enemy_cell = self._cell_from_xy(ex, ey)
+                self.enemy_target_cell = enemy_cell
+                hull_rot, move_speed = self.Follow_Path_With_Modifiers(override_goal_cell=enemy_cell)
+
+                print(f"[ATTACK] OUT OF RANGE (desired={desired}) -> A* move dist={dist:.2f}")
+
                 return ActionCommand(
                     barrel_rotation_angle=barrel_rot,
-                    heading_rotation_angle=0.0,
-                    move_speed=0.0,
-                    should_fire=bool(can_fire),
+                    heading_rotation_angle=hull_rot,
+                    move_speed=move_speed,
+                    should_fire=False,
                     ammo_to_load=desired
                 )
-
-            # ---------- OUT OF RANGE -> ONLY THEN A* TOWARDS ENEMY ----------
-            enemy_cell = self._cell_from_xy(ex, ey)
-            self.enemy_target_cell = enemy_cell
-            hull_rot, move_speed = self.Follow_Path_With_Modifiers(override_goal_cell=enemy_cell)
-
-            print(f"[ATTACK] OUT OF RANGE (desired={desired}) -> A* move dist={dist:.2f}")
-
-            return ActionCommand(
-                barrel_rotation_angle=barrel_rot,
-                heading_rotation_angle=hull_rot,
-                move_speed=move_speed,
-                should_fire=False,
-                ammo_to_load=desired
-            )
-
-
-
-                            
+                
+            if SUBMODE == "escape":
+                pass
+            
         return ActionCommand(
             barrel_rotation_angle=barrel_rot,
             heading_rotation_angle=hull_rot,
@@ -1816,8 +1819,6 @@ class RandomAgent:
             should_fire=should_fire,
             ammo_to_load=ammo_to_load
         )
-
-    
 
     def destroy(self):
         self.is_destroyed = True
