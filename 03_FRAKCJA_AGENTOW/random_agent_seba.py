@@ -25,8 +25,12 @@ import json
 import heapq
 
 RECENT_TICKS_GRAPH = 5
-MAX_PATH_STUCK_TICKS = 100
+MAX_PATH_STUCK_TICKS = 300
 NO_MOVE_LIMIT_TICKS = 300
+
+ESCAPE_COMMIT_TICKS = 300      # ile ticków utrzymujemy escape (jak attack_commit)
+ESCAPE_BACK_TICKS   = 150       # ile ticków cofamy "na full"
+ESCAPE_REPLAN_EVERY = 120       # jak często możemy odświeżyć escape-goal podczas commit
 
 # Add paths for imports
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -130,129 +134,289 @@ logging.basicConfig(
 logging.info(f"Logging to: {LOG_PATH}")
 
 class RandomAgent:
-    def __init__(self, name: str = "TestBot", modifier = None):
-                
-        self.tank_type = random.choices(population=["Leader", "Follower"],weights=[0.6, 0.4])[0]
+    def __init__(self, name: str = "TestBot", modifier=None):
+
+        # =========================================================
+        # ID / META
+        # =========================================================
+        self.name = name
+        self.modifier = modifier
+
+        self.is_destroyed = False
+        self.current_tick = 0
+
+        # debug / state file
+        self.state_dir = os.path.join(os.path.dirname(__file__), "agent_states")
+        os.makedirs(self.state_dir, exist_ok=True)
+        self.state_path = os.path.join(self.state_dir, f"agent_state_{self.name}.json")
+
+        logging.info(f"[{self.name}] Agent initialized")
+        logging.info(f"[modifier={self.modifier}] otrzymałem argument")
+
+        # =========================================================
+        # ROLE (Leader/Follower)
+        # =========================================================
+        self.tank_type = random.choices(population=["Leader", "Follower"], weights=[0.6, 0.4])[0]
         self.tank_type_used = True
 
-        
-        self.powerup_target_cell = None
-        self.powerup_target_last_seen_tick = -10_000
-        self.powerup_target_acquired_tick = -10_000
-        self.powerup_forget_after = 200
-        self.powerup_commit_ticks = 200
-        self.powerup_switch_ratio = 0.80
-        
-        
-           # --- ATTACK COMMIT / TARGET ---
+        # follower memory
+        self.friend_target_cell = None
+        self.friend_target_last_seen_tick = -10_000
+        self.friend_forget_after = 120
+
+        # =========================================================
+        # MODE / COMMIT STATE
+        # =========================================================
+        self.mode = "search"              # "search" | "power_up" | "attack" | "escape"
+        self.current_state = "search"     # jeśli dalej używasz gdzieś osobno
+
+        # --- ATTACK ---
         self.attack_commit_ticks = 100
         self.attack_until_tick = -10_000
 
         self.enemy_target_id = None
         self.enemy_target_cell = None
         self.enemy_target_last_seen_tick = -10_000
-        self.enemy_forget_after = 80   # po tylu tickach bez widoku wroga zapomnij
+        self.enemy_forget_after = 80
+        self.attack_desired_range = 8.0
 
-        # “chcę podejść na dystans” (w światach / units)
-        self.attack_desired_range = 8.0   # ustaw sobie: np. 6-10 działa dobrze
-        
-        
-        self.last_world_pos = None   # (x, y)
+        # --- ESCAPE ---
+        self.escape_commit_ticks = ESCAPE_COMMIT_TICKS
+        self.escape_until_tick = -10_000
+
+        self.escape_back_ticks = ESCAPE_BACK_TICKS
+        self.escape_enter_tick = -10_000  # moment wejścia w escape (dla back-phase)
+
+        self.escape_target_cell = None
+        self.escape_target_last_pick_tick = -10_000
+        self.escape_forget_after = 120
+
+        # =========================================================
+        # POWERUP TARGETING
+        # =========================================================
+        self.powerup_target_cell = None
+        self.powerup_target_last_seen_tick = -10_000
+        self.powerup_target_acquired_tick = -10_000
+        self.powerup_forget_after = 200
+        self.powerup_commit_ticks = 200
+        self.powerup_switch_ratio = 0.80
+
+        # =========================================================
+        # MOVEMENT / PATHFOLLOW
+        # =========================================================
+        self.last_world_pos = None
         self.no_move_ticks = 0
         self.force_change_goal = False
 
         self.MIN_MOVE_EPS = 1
         self.NO_MOVE_LIMIT_TICKS = NO_MOVE_LIMIT_TICKS
-        
-        self.mode = "search"
+
         self.last_eval_tick = -10_000
         self.last_forced_replan_tick = -10_000
+
         self.current_goal_cell = None
         self.current_path_cost = None
+
+        self.path_to_follow = None
+        self.path_index = 0
+        self.path_stuck_ticks = 0
+        self.reached_points = None
+
+        # debug path
         self.debug_goal_cell = None
         self.debug_path = None
         self.debug_path_index = 0
-        self.path_index = 0
-        self.name = name
-        self.last_angle = 0
-        self.path_to_follow = None
-        self.reached_points = None
-        self.path_stuck_ticks =  0
-        self.is_destroyed = False
-        
-        
-        # --- FOLLOWER: FRIEND TARGET MEMORY ---
-        self.friend_target_cell = None
-        self.friend_target_last_seen_tick = -10_000
-        self.friend_forget_after = 120  # ticks to remember last known friend position 
-        
-        logging.info(f"[{self.name}] Agent initialized")
-        
-        
-        self.state_dir = os.path.join(os.path.dirname(__file__), "agent_states")
-        os.makedirs(self.state_dir, exist_ok=True)
-        self.state_path = os.path.join(self.state_dir, f"agent_state_{self.name}.json")
-        logging.debug(f"[DEBUG] Initializing {name}...")
-        
-        self.modifier = modifier
-        logging.info(f"[{self.modifier}] otrzymałem argument")
 
-        # Initialize dictionaries
+        # modifier-driven movement list
+        self.movement_list = []
+        self.last_angle = 0
+
+        # =========================================================
+        # SENSOR / MEMORY
+        # =========================================================
         self.static_info = {}
         self.dynamic_info = {}
+        self.memory = {}              # enemy memory etc.
+        self.map_memory = {}          # terrain memory (subcells)
+        self.obstacle_memory = {}     # obstacle memory (subcells)
+
         self.meta_info = {
             "is_aimed_at": False,
             "closest_enemy_angle": 0.0,
             "closest_enemy_dist": 707,  # 500 * sqrt(2)
             "target_id": None
         }
-        self.memory = {}
-        self.current_tick = 0
-        self.movement_list = []
-        self.map_memory = {}       
-        self.obstacle_memory = {}
-        
-    
-        #### Stan czołgu - podjęcie akcji 
-        self.current_state = "search"
-        
-        
+
+        # =========================================================
+        # SCANNING (barrel scan)
+        # =========================================================
         self.scan_offset = 0.0
         self.scan_direction = 1.0
         self.scan_max_offset = 90.0
+
         self.full_scan_interval = 180
         self.full_scan_active = False
         self.full_scan_remaining = 0.0
         self.last_full_scan_tick = -10_000
-        
-         # --- GRID CONFIG (uniwersalne) ---
+
+        # =========================================================
+        # GRID CONFIG
+        # =========================================================
         self.TILE_SIZE = 10.0
-        self.SUBDIV = SUBDIV  # <-- ustawiasz jak chcesz (1,2,5,...)
-        (self.CELL_SIZE,
-         self._cell_from_xy,
-         self._stamp_tile_center_to_subcells,
-         self._cell_center) = make_grid_helpers(self.TILE_SIZE, self.SUBDIV)
+        self.SUBDIV = SUBDIV
+        (
+            self.CELL_SIZE,
+            self._cell_from_xy,
+            self._stamp_tile_center_to_subcells,
+            self._cell_center
+        ) = make_grid_helpers(self.TILE_SIZE, self.SUBDIV)
+        
+        
+        self.dodge_until_tick = -10_000
+        self.dodge_heading_target = None
+        self.dodge_dir = 1  # 1/-1
     
     def _get(self, d, key, default=None):
         return d.get(key, default) if isinstance(d, dict) else getattr(d, key, default)
+    
+    def _fallback_ammo_to_load(self) -> str:
+        inv = self._ammo_inventory()
+        loaded = self._loaded_ammo_name()
+
+        # 1) jeśli mamy jeszcze tego co jest załadowane / wybrane wcześniej
+        if loaded and inv.get(loaded, 0) > 0:
+            return loaded
+
+        # 2) preferencja: daleko -> LONG, potem LIGHT, potem HEAVY
+        for a in ("LONG_DISTANCE", "LIGHT", "HEAVY"):
+            if inv.get(a, 0) > 0:
+                return a
+
+        # 3) totalny fallback (żeby pydantic nie padł) — ale to i tak nic nie da w grze
+        return "LIGHT"
+
+
+    def _commit_mode(self, mode: str, enemy) -> None:
+        """Ustawia commit + self.mode dla danego trybu."""
+        mode = (mode or "").lower()
+        if mode == "attack":
+            self._enter_attack(enemy)
+            self.mode = "attack"
+        elif mode == "escape":
+            self._enter_escape(enemy)
+            self.mode = "escape"
+        else:
+            raise ValueError(f"Unknown mode to commit: {mode}")
+
+    def _maybe_reconsider_combat_mode(self, enemy) -> bool:
+        """
+        Miejsce na przyszłą zmianę trybu (np. gdy HP spadnie).
+        Na razie ZABLOKOWANE: zawsze zwraca False.
+        
+        Docelowo: odpalane co N ticków (np. 50) i może przełączyć commit.
+        Zwraca True jeśli zmieniło tryb/commit, inaczej False.
+        """
+        return False
+    
+    def _attack_micro_dodge(self, enemy, desired_range_world: float, band: float = 2.0):
+        if enemy is None:
+            return 0.0, 0.0
+
+        pos_my = self.dynamic_info.get("position") or {}
+        pos_enemy = self._get(enemy, "position", {}) or {}
+
+        mx = float(self._get(pos_my, "x", 0.0))
+        my = float(self._get(pos_my, "y", 0.0))
+        ex = float(self._get(pos_enemy, "x", 0.0))
+        ey = float(self._get(pos_enemy, "y", 0.0))
+
+        dx = ex - mx
+        dy = ey - my
+        dist = math.hypot(dx, dy)
+
+        angle_to_enemy = (math.degrees(math.atan2(dy, dx)) + 360.0) % 360.0
+
+        # co 20–60 ticków losuj stronę i offset (żeby nie być przewidywalnym)
+        if self.current_tick >= getattr(self, "dodge_until_tick", -10_000):
+            self.dodge_dir = random.choice([-1, 1])
+            self.dodge_offset = random.uniform(-20.0, 20.0)  # mały random
+            self.dodge_until_tick = self.current_tick + random.randint(20, 60)
+
+        # bazowo: strafe (boki)
+        base = (angle_to_enemy + 90.0 * self.dodge_dir + self.dodge_offset) % 360.0
+
+        # korekta dystansu: zamiast 180°, tylko +/- 20..35 stopni domieszki
+        # (czyli nadal prawie bokiem, ale lekko "od" lub "do")
+        if dist < (desired_range_world - band):
+            # za blisko -> domieszaj "od wroga" do strafe
+            base = (base + random.uniform(20.0, 35.0) * self.dodge_dir) % 360.0
+        elif dist > (desired_range_world + band):
+            # za daleko -> domieszaj "do wroga" do strafe (w przeciwną stronę)
+            base = (base - random.uniform(20.0, 35.0) * self.dodge_dir) % 360.0
+
+        current_heading = float(self.dynamic_info.get("heading", 0.0))
+        err = self._angle_diff(base, current_heading)
+
+        heading_spin = float(self.static_info.get("heading_spin_rate", 0.0))
+        hull_rot = self._clamp(err, -heading_spin, heading_spin)
+
+        top_speed = float(self.static_info.get("top_speed", 0.0))
+
+        # jedź do przodu (zero cofki); prędkość zależna od tego czy jesteś ustawiony
+        move = 0.9 * top_speed if abs(err) < 25 else 0.4 * top_speed
+        return hull_rot, move
+
+
+    def _choose_combat_mode(self, enemy) -> str:
+        """
+        Policy wyboru trybu walki.
+        Na razie losowo, ale tu później podepniesz HP, dystans, przewagę itd.
+        """
+        return random.choice(["attack"])
 
     def _update_attack_memory(self):
-        """Jeśli widzimy wroga: commituj attack i zapamiętaj target."""
+        """Jeśli widzimy wroga: zapamiętaj target (bez commitu trybu)."""
         now = self.current_tick
         enemy = self._closest_visible_enemy()
         if enemy is None:
             return None
 
-        self.attack_until_tick = max(self.attack_until_tick, now + self.attack_commit_ticks)
-
         eid = self._get(enemy, "id", None)
         pos = self._get(enemy, "position", {}) or {}
         ex = float(self._get(pos, "x", 0.0))
         ey = float(self._get(pos, "y", 0.0))
+
         self.enemy_target_id = eid
         self.enemy_target_cell = self._cell_from_xy(ex, ey)
         self.enemy_target_last_seen_tick = now
         return enemy
+    
+    def _enter_attack(self, enemy):
+        now = self.current_tick
+        self.attack_until_tick = max(self.attack_until_tick, now + self.attack_commit_ticks)
+        # zapamiętaj target jeśli chcesz (u Ciebie już _update_attack_memory to robi)
+        return
+
+    def _enter_escape(self, enemy):
+        now = self.current_tick
+
+        was_active = (now <= self.escape_until_tick)
+        self.escape_until_tick = max(self.escape_until_tick, now + self.escape_commit_ticks)
+
+        # tylko NOWE wejście w escape
+        if not was_active:
+            self.escape_enter_tick = now
+            self._start_escape(enemy)  # pick goal ONCE on entry
+        else:
+            # opcjonalnie: jeśli nie ma celu (np. wcześniej nie znalazł) to spróbuj dobrać
+            if self.escape_target_cell is None and enemy is not None:
+                self._start_escape(enemy)
+
+    def _should_stay_in_escape(self) -> bool:
+        return self.current_tick <= self.escape_until_tick
+
+    def _should_stay_in_attack(self) -> bool:
+        return self.current_tick <= self.attack_until_tick
 
     def _furthest_visible_friend(self):
             """Return furthest visible friendly tank (not me)."""
@@ -292,6 +456,161 @@ class RandomAgent:
         self.friend_target_cell = self._cell_from_xy(fx, fy)
         self.friend_target_last_seen_tick = now
         return f
+    
+    def _mode_escape(self, enemy_now) -> ActionCommand:
+        barrel_rot = self._scan_strategy()
+        top_speed = float(self.static_info.get("top_speed", 0.0))
+
+        # jeśli wróg jest widoczny – odśwież commit i ewentualnie escape_target
+        if enemy_now is not None:
+            # tylko przedłuż commit, nie ruszaj enter_tick i nie pickuj celu co tick
+            self.escape_until_tick = max(self.escape_until_tick, self.current_tick + self.escape_commit_ticks)
+
+        # 1) back-phase przez ESCAPE_BACK_TICKS od wejścia
+        if self.escape_enter_tick >= 0 and (self.current_tick - self.escape_enter_tick) < self.escape_back_ticks:
+            # if we don't see enemy, just reverse (fallback)
+            if enemy_now is None:
+                return ActionCommand(
+                    barrel_rotation_angle=barrel_rot,
+                    heading_rotation_angle=0.0,
+                    move_speed=-top_speed,
+                    should_fire=False,
+                    ammo_to_load=random.choice(["LIGHT", "HEAVY", "LONG_DISTANCE"])
+                )
+
+            my_pos = self.dynamic_info.get("position") or {}
+            enemy_pos = self._get(enemy_now, "position", {}) or {}
+
+            mx = float(self._get(my_pos, "x", 0.0))
+            my = float(self._get(my_pos, "y", 0.0))
+            ex = float(self._get(enemy_pos, "x", 0.0))
+            ey = float(self._get(enemy_pos, "y", 0.0))
+
+            # face enemy (enemy - me), so reverse goes away (me - enemy)
+            dx = ex - mx
+            dy = ey - my
+
+            if abs(dx) < 1e-6 and abs(dy) < 1e-6:
+                hull_rot = 0.0
+            else:
+                desired_heading = (math.degrees(math.atan2(dy, dx)) + 360.0) % 360.0
+                current_heading = float(self.dynamic_info.get("heading", 0.0))
+                err = self._angle_diff(desired_heading, current_heading)
+
+                heading_spin = float(self.static_info.get("heading_spin_rate", 0.0))
+                hull_rot = self._clamp(err, -heading_spin, heading_spin)
+
+            return ActionCommand(
+                barrel_rotation_angle=barrel_rot,
+                heading_rotation_angle=hull_rot,
+                move_speed=-top_speed,
+                should_fire=False,
+                ammo_to_load=random.choice(["LIGHT", "HEAVY", "LONG_DISTANCE"])
+            )
+
+        # 2) jeśli nie mamy celu ucieczki, fallback: dalej cofaj
+        if self.escape_target_cell is None:
+            return ActionCommand(
+                barrel_rotation_angle=barrel_rot,
+                heading_rotation_angle=0.0,
+                move_speed=-top_speed,
+                should_fire=False,
+                ammo_to_load=random.choice(["LIGHT", "HEAVY", "LONG_DISTANCE"])
+            )
+
+        # 3) odśwież escape goal co ESCAPE_REPLAN_EVERY podczas commitu (opcjonalnie)
+        if (self.current_tick - self.escape_target_last_pick_tick) >= ESCAPE_REPLAN_EVERY:
+            enemy = enemy_now if enemy_now is not None else self._closest_visible_enemy()
+            if enemy is not None:
+                self._start_escape(enemy)
+
+        hull_rot, move_speed = self.Follow_Path_With_Modifiers(override_goal_cell=self.escape_target_cell)
+
+        return ActionCommand(
+            barrel_rotation_angle=barrel_rot,
+            heading_rotation_angle=hull_rot,
+            move_speed=move_speed,
+            should_fire=False,
+            ammo_to_load=random.choice(["LIGHT", "HEAVY", "LONG_DISTANCE"])
+        )
+        
+    
+    def _select_escape_goal_cell(self, nodes, enemy_cell, max_candidates=40):
+        """
+        Wybiera cel ucieczki: bezpieczny + daleko od wroga + osiągalny (A*).
+        - "bezpieczny" = dmg==0, not risk, not blocked
+        - ranking = dystans od wroga (max)
+        - reachability = A* znajduje ścieżkę
+        """
+        if not nodes or enemy_cell is None:
+            return None
+
+        node_by_cell = {n.cell: n for n in nodes}
+        if enemy_cell not in node_by_cell:
+            # enemy_cell może wypaść poza graf; wtedy weź przybliżenie: najbliższy node do enemy world
+            ex, ey = self._cell_center(enemy_cell)
+            best = None
+            best_d2 = 1e30
+            for c, n in node_by_cell.items():
+                wx, wy = n.world
+                d2 = (wx - ex) ** 2 + (wy - ey) ** 2
+                if d2 < best_d2:
+                    best_d2 = d2
+                    best = c
+            enemy_cell = best
+
+        if enemy_cell is None:
+            return None
+
+        # filtr bezpiecznych kandydatów
+        safe = [
+            n for n in nodes
+            if (not n.blocked) and (n.dmg == 0) and (not getattr(n, "is_risk", False))
+        ]
+        if not safe:
+            # fallback: cokolwiek nieblocked
+            safe = [n for n in nodes if not n.blocked]
+            if not safe:
+                return None
+
+        # sortuj: najdalej od enemy
+        ex, ey = self._cell_center(enemy_cell)
+        safe.sort(key=lambda n: (n.world[0] - ex) ** 2 + (n.world[1] - ey) ** 2, reverse=True)
+
+        # bierz top i sprawdzaj osiągalność A*
+        for n in safe[:max_candidates]:
+            path = self._a_star(nodes, n.cell)
+            if path and len(path) >= 2:
+                return n.cell
+
+        return None
+    
+    def _start_escape(self, enemy):
+        now = self.current_tick
+
+        # commit
+        self.escape_until_tick = max(self.escape_until_tick, now + self.escape_commit_ticks)
+
+        # pick enemy cell (last known)
+        pos = self._get(enemy, "position", {}) or {}
+        ex = float(self._get(pos, "x", 0.0))
+        ey = float(self._get(pos, "y", 0.0))
+        enemy_cell = self._cell_from_xy(ex, ey)
+
+        # build graph from memory and pick escape goal
+        visible_obstacles = self.dynamic_info.get("visible_obstacles") or []
+        visible_terrains  = self.dynamic_info.get("visible_terrains")  or []
+        nodes = self._divide_seen_area(visible_obstacles, visible_terrains)
+
+        goal = self._select_escape_goal_cell(nodes, enemy_cell)
+        if goal is not None:
+            self.escape_target_cell = goal
+            self.escape_target_last_pick_tick = now
+
+        return enemy_cell
+    
+    def _should_stay_in_escape(self) -> bool:
+        return self.current_tick <= self.escape_until_tick
 
     def _maybe_forget_friend_target(self):
         if self.friend_target_cell is None:
@@ -1594,46 +1913,64 @@ class RandomAgent:
         return self._clamp(error_angle, -barrel_spin_rate, barrel_spin_rate)
 
 ##############################################################
-    
+#############################
     def _process_action(self) -> ActionCommand:
-        
         print(self.no_move_ticks)
-        MODE = self.mode
-        SUBMODE = None
+        now = self.current_tick
 
-         # --- update attack memory if enemy visible ---
+        # 0) update enemy memory (memory-only)
         enemy_now = self._update_attack_memory()
-
-        # --- decay / forget enemy if not seen for a while ---
         self._maybe_forget_enemy_target()
 
-        # --- MODE selection with attack commit ---
+        # 1) commit flags
+        in_attack = self._should_stay_in_attack()
+        in_escape = self._should_stay_in_escape()
+
+        # 2) COMBAT EVENT: enemy visible -> choose/extend exactly ONE mode
         if enemy_now is not None:
-            MODE = "alert"
-        elif self._should_stay_in_attack() and self.enemy_target_cell is not None:
-            MODE = "alert"
-        elif self.powerup_target_cell is not None:
-            MODE = "power_up"
-        elif self.dynamic_info["visible_powerups"]:
+
+            # (future hook) allow switching while commit active (currently disabled)
+            if (in_attack or in_escape):
+                switched = self._maybe_reconsider_combat_mode(enemy_now)  # returns False now
+                if switched:
+                    in_attack = self._should_stay_in_attack()
+                    in_escape = self._should_stay_in_escape()
+
+            # FIRST sighting (no active commit) -> pick ONE mode and commit it
+            if (not in_attack) and (not in_escape):
+                chosen = self._choose_combat_mode(enemy_now)  # attack/escape (for now random)
+                self._commit_mode(chosen, enemy_now)
+                # refresh flags after commit
+                in_attack = self._should_stay_in_attack()
+                in_escape = self._should_stay_in_escape()
+
+            # Enemy still visible and commit active -> extend ONLY the active one
+            else:
+                if in_escape:
+                    self._commit_mode("escape", enemy_now)
+                elif in_attack:
+                    self._commit_mode("attack", enemy_now)
+
+        # 3) MODE selection (priority)
+        if self._should_stay_in_escape():
+            MODE = "escape"
+        elif self._should_stay_in_attack():
+            MODE = "attack"
+        elif self.powerup_target_cell is not None or (self.dynamic_info.get("visible_powerups") or []):
             MODE = "power_up"
         else:
             MODE = "search"
-            
-        print("MODE")
-        print(MODE)
-        print("MODE")
-        
-        
-        # if MODE == "search":
-        #     barrel_rot = self._scan_strategy()
-        #     hull_rot, move_speed =  self.Follow_Path_With_Modifiers()
-        #     should_fire = False
-        #     ammo_to_load = random.choice(["LIGHT", "HEAVY", "LONG_DISTANCE"])
-            
+
+        self.mode = MODE
+        print("MODE"); print(MODE); print("MODE")
+
+        # ---------------------------
+        # SEARCH
+        # ---------------------------
         if MODE == "search":
             barrel_rot = self._scan_strategy()
 
-            # --- FOLLOWER: override search target with furthest known friendly tank ---
+            # FOLLOWER: override search target with furthest known friendly tank
             if self.tank_type_used and self.tank_type == "Follower":
                 friend_goal = self._select_friend_goal_cell()
                 if friend_goal is not None:
@@ -1643,10 +1980,17 @@ class RandomAgent:
             else:
                 hull_rot, move_speed = self.Follow_Path_With_Modifiers()
 
-            should_fire = False
-            ammo_to_load = random.choice(["LIGHT", "HEAVY", "LONG_DISTANCE"])
-        
+            return ActionCommand(
+                barrel_rotation_angle=barrel_rot,
+                heading_rotation_angle=hull_rot,
+                move_speed=move_speed,
+                should_fire=False,
+                ammo_to_load=random.choice(["LIGHT", "HEAVY", "LONG_DISTANCE"])
+            )
 
+        # ---------------------------
+        # POWER UP
+        # ---------------------------
         if MODE == "power_up":
             barrel_rot = self._scan_strategy()
 
@@ -1656,11 +2000,7 @@ class RandomAgent:
             else:
                 hull_rot, move_speed = self.Follow_Path_With_Modifiers()
 
-            should_fire = False
-            ammo_to_load = random.choice(["LIGHT", "HEAVY", "LONG_DISTANCE"])
-            
-            
-            
+            # clear powerup target if we reached and it's gone
             if self.powerup_target_cell is not None:
                 close2 = (self.CELL_SIZE * 0.35) ** 2
                 if self._dist2_to_cell_center(self.powerup_target_cell) <= close2:
@@ -1671,135 +2011,79 @@ class RandomAgent:
                         self.path_to_follow = None
                         self.path_index = 0
                         self.path_stuck_ticks = 0
-                        self.last_forced_replan_tick = -10_000  
-                        
-                        
-                        
-        if MODE == "alert":
-            SUBMODE = "attack"
-            if SUBMODE == "attack":
-                enemy = enemy_now if enemy_now is not None else self._closest_visible_enemy()
+                        self.last_forced_replan_tick = -10_000
 
-                # If no visible enemy: go to last known cell (optional), scan
-                if enemy is None:
-                    barrel_rot = self._scan_strategy()
-                    hull_rot, move_speed = self.Follow_Path_With_Modifiers(
-                        override_goal_cell=self.enemy_target_cell if self.enemy_target_cell is not None else None
-                    )
-                    return ActionCommand(
-                        barrel_rotation_angle=barrel_rot,
-                        heading_rotation_angle=hull_rot,
-                        move_speed=move_speed,
-                        should_fire=False,
-                        ammo_to_load="LONG_DISTANCE"
-                    )
+            return ActionCommand(
+                barrel_rotation_angle=barrel_rot,
+                heading_rotation_angle=hull_rot,
+                move_speed=move_speed,
+                should_fire=False,
+                ammo_to_load=random.choice(["LIGHT", "HEAVY", "LONG_DISTANCE"])
+            )
 
-                # ---------- DISTANCE (world units) ----------
-                dist_payload = float(self._get(enemy, "distance", 1e9))
+        # ---------------------------
+        # ATTACK
+        # ---------------------------
+        if MODE == "attack":
+            enemy = enemy_now if enemy_now is not None else self._closest_visible_enemy()
 
-                pos_my = self.dynamic_info.get("position") or {}
-                pos_enemy = self._get(enemy, "position", {}) or {}
+            # no visible enemy -> go to last known cell and scan
+            if enemy is None:
+                barrel_rot = self._scan_strategy()
+                hull_rot, move_speed = self.Follow_Path_With_Modifiers(
+                    override_goal_cell=self.enemy_target_cell if self.enemy_target_cell is not None else None
+                )
+                return ActionCommand(
+                    barrel_rotation_angle=barrel_rot,
+                    heading_rotation_angle=hull_rot,
+                    move_speed=move_speed,
+                    should_fire=False,
+                    ammo_to_load="LONG_DISTANCE"
+                )
 
-                mx = float(self._get(pos_my, "x", 0.0))
-                my = float(self._get(pos_my, "y", 0.0))
-                ex = float(self._get(pos_enemy, "x", 0.0))
-                ey = float(self._get(pos_enemy, "y", 0.0))
+            # distance
+            pos_my = self.dynamic_info.get("position") or {}
+            pos_enemy = self._get(enemy, "position", {}) or {}
+            mx = float(self._get(pos_my, "x", 0.0))
+            my = float(self._get(pos_my, "y", 0.0))
+            ex = float(self._get(pos_enemy, "x", 0.0))
+            ey = float(self._get(pos_enemy, "y", 0.0))
+            dist = math.hypot(ex - mx, ey - my)
 
-                dist_real = math.hypot(ex - mx, ey - my)
+            # pick ammo
+            inv = self._ammo_inventory()
+            loaded = self._loaded_ammo_name()
 
-                # Choose which dist you trust (they matched in your log)
-                dist = dist_real
-
-                # ---------- DEBUG ----------
-                inv = self._ammo_inventory()
-                loaded = self._loaded_ammo_name()
-
-                r_long = self._ammo_range_world("LONG_DISTANCE")
-                r_light = self._ammo_range_world("LIGHT")
-                r_heavy = self._ammo_range_world("HEAVY")
-
-                print("\n=== ATTACK DEBUG ===")
-                print("dist(payload)=", dist_payload, "dist(real)=", dist_real, "tiles≈", dist_real / self.TILE_SIZE)
-                print("loaded=", loaded, "inv=", inv)
-                print("ranges: LONG=", r_long, "LIGHT=", r_light, "HEAVY=", r_heavy)
-                print("reload_timer=", self.dynamic_info.get("reload_timer", None))
-                print("====================")
-
-                # ---------- PICK BEST AMMO (sniper -> light -> heavy) ----------
-                # pick first ammo that exists AND can reach current dist
-                desired = None
+            desired = None
+            for a in ["LONG_DISTANCE", "LIGHT", "HEAVY"]:
+                if inv.get(a, 0) > 0 and self._ammo_range_world(a) >= dist:
+                    desired = a
+                    break
+            if desired is None:
                 for a in ["LONG_DISTANCE", "LIGHT", "HEAVY"]:
-                    if inv.get(a, 0) > 0 and self._ammo_range_world(a) >= dist:
+                    if inv.get(a, 0) > 0:
                         desired = a
                         break
 
-                # if none can reach, still prefer loading something (sniper->light->heavy)
-                if desired is None:
-                    for a in ["LONG_DISTANCE", "LIGHT", "HEAVY"]:
-                        if inv.get(a, 0) > 0:
-                            desired = a
-                            break
+            barrel_rot = self._aim_barrel_at_enemy(enemy)
 
-                if desired is None:
-                    # no ammo at all
-                    barrel_rot = self._aim_barrel_at_enemy(enemy)
-                    return ActionCommand(
-                        barrel_rotation_angle=barrel_rot,
-                        heading_rotation_angle=0.0,
-                        move_speed=0.0,
-                        should_fire=False,
-                        ammo_to_load=None
-                    )
+            if desired is None:
+                return ActionCommand(
+                    barrel_rotation_angle=barrel_rot,
+                    heading_rotation_angle=0.0,
+                    move_speed=0.0,
+                    should_fire=False,
+                    ammo_to_load=self._fallback_ammo_to_load(),
+                )
 
-                # ---------- AIM ----------
-                barrel_rot = self._aim_barrel_at_enemy(enemy)
-
-                # ---------- IF WRONG AMMO LOADED -> REQUEST RELOAD AND STOP MOVING ----------
-                # This prevents ramming while holding HEAVY when LONG is needed.
-                if loaded != desired:
-                    print(f"[ATTACK] switching ammo: loaded={loaded} -> desired={desired} (STOP)")
-                    return ActionCommand(
-                        barrel_rotation_angle=barrel_rot,
-                        heading_rotation_angle=0.0,
-                        move_speed=0.0,          # don't move while changing ammo
-                        should_fire=False,
-                        ammo_to_load=desired
-                    )
-
-                # ---------- IN RANGE: HOLD POSITION, SHOOT WHEN READY ----------
-                in_range = self._ammo_range_world(desired) >= dist
-                stop_dist = max(0.0, self._ammo_range_world(desired) - 0.75)  # standoff (tunable)
-
-                if in_range:
-                    can_fire = self._can_fire_at_enemy_with_range(enemy, desired, aim_tolerance_deg=5.0)
-                    print(f"[ATTACK] in_range={in_range} can_fire={can_fire} dist={dist:.2f} stop_dist={stop_dist:.2f}")
-
-                    # If close enough, never drive forward (prevents “creeping” into enemy)
-                    if dist <= stop_dist:
-                        return ActionCommand(
-                            barrel_rotation_angle=barrel_rot,
-                            heading_rotation_angle=0.0,
-                            move_speed=0.0,
-                            should_fire=bool(can_fire),
-                            ammo_to_load=desired
-                        )
-
-                    # Even if not at stop_dist yet: still don't A* if you're already in range.
-                    # Just wait/aim/reload without moving forward.
-                    return ActionCommand(
-                        barrel_rotation_angle=barrel_rot,
-                        heading_rotation_angle=0.0,
-                        move_speed=0.0,
-                        should_fire=bool(can_fire),
-                        ammo_to_load=desired
-                    )
-
-                # ---------- OUT OF RANGE -> ONLY THEN A* TOWARDS ENEMY ----------
-                enemy_cell = self._cell_from_xy(ex, ey)
-                self.enemy_target_cell = enemy_cell
-                hull_rot, move_speed = self.Follow_Path_With_Modifiers(override_goal_cell=enemy_cell)
-
-                print(f"[ATTACK] OUT OF RANGE (desired={desired}) -> A* move dist={dist:.2f}")
+            if loaded != desired:
+                # If enemy is out of range for the ammo we want, chase while loading.
+                if dist > self._ammo_range_world(desired):
+                    enemy_cell = self._cell_from_xy(ex, ey)
+                    self.enemy_target_cell = enemy_cell
+                    hull_rot, move_speed = self.Follow_Path_With_Modifiers(override_goal_cell=enemy_cell)
+                else:
+                    hull_rot, move_speed = 0.0, 0.0  # in-range: stop to stabilize aim
 
                 return ActionCommand(
                     barrel_rotation_angle=barrel_rot,
@@ -1808,18 +2092,59 @@ class RandomAgent:
                     should_fire=False,
                     ammo_to_load=desired
                 )
+        
+            in_range = (self._ammo_range_world(desired) >= dist)
+            if in_range:
+                can_fire = self._can_fire_at_enemy_with_range(enemy, desired, aim_tolerance_deg=5.0)
+
+                # desired standoff range: np. 0.6 zasięgu amunicji
+                desired_range = 0.60 * self._ammo_range_world(desired)
+
+                # tylko gdy wróg celuje w nas albo losowo co jakiś czas
+                if self.meta_info.get("is_aimed_at", False) or random.random() < 0.25:
+                    hull_rot, move_speed = self._attack_micro_dodge(enemy, desired_range_world=desired_range, band=2.0)
+                else:
+                    hull_rot, move_speed = 0.0, 0.0
+
+                return ActionCommand(
+                    barrel_rotation_angle=barrel_rot,
+                    heading_rotation_angle=hull_rot,
+                    move_speed=move_speed,
+                    should_fire=bool(can_fire),
+                    ammo_to_load=desired
+    )
                 
-            if SUBMODE == "escape":
-                pass
-            
+
+            enemy_cell = self._cell_from_xy(ex, ey)
+            self.enemy_target_cell = enemy_cell
+            hull_rot, move_speed = self.Follow_Path_With_Modifiers(override_goal_cell=enemy_cell)
+
+            return ActionCommand(
+                barrel_rotation_angle=barrel_rot,
+                heading_rotation_angle=hull_rot,
+                move_speed=move_speed,
+                should_fire=False,
+                ammo_to_load=desired
+            )
+
+        # ---------------------------
+        # ESCAPE
+        # ---------------------------
+        if MODE == "escape":
+            return self._mode_escape(enemy_now)
+
+        # fallback (should not happen)
+        barrel_rot = self._scan_strategy()
+        hull_rot, move_speed = self.Follow_Path_With_Modifiers()
         return ActionCommand(
             barrel_rotation_angle=barrel_rot,
             heading_rotation_angle=hull_rot,
             move_speed=move_speed,
-            should_fire=should_fire,
-            ammo_to_load=ammo_to_load
+            should_fire=False,
+            ammo_to_load=random.choice(["LIGHT", "HEAVY", "LONG_DISTANCE"])
         )
 
+############################
     def destroy(self):
         self.is_destroyed = True
         logging.info(f"[{self.name}] Tank destroyed!")

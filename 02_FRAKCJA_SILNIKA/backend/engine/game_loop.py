@@ -392,7 +392,7 @@ class GameLoop:
             # Team 1 tanks
             for i in range(TEAM_A_NBR):
                 tank_id = f"tank_1_{i + 1}"
-                tank_type = random.randint(1, 3)  # 1=Light, 2=Heavy, 3=Sniper
+                tank_type = 1  # 1=Light, 2=Heavy, 3=Sniper
                 spawn_pos = self._get_spawn_position(1, i)
                 
                 tank = self._create_tank(tank_id, 1, tank_type, spawn_pos)
@@ -426,7 +426,7 @@ class GameLoop:
             # Team 2 tanks
             for i in range(TEAM_B_NBR):
                 tank_id = f"tank_2_{i + 1}"
-                tank_type = random.randint(1, 3)  # 1=Light, 2=Heavy, 3=Sniper
+                tank_type = 1  # 1=Light, 2=Heavy, 3=Sniper
                 spawn_pos = self._get_spawn_position(2, i)
                 
                 tank = self._create_tank(tank_id, 2, tank_type, spawn_pos)
@@ -517,7 +517,7 @@ class GameLoop:
         X_SPACING_RATIO = 0.04
         Y_SPACING_RATIO = 0.04
         RIGHT_MARGIN_RATIO = 0.2
-        offset = 5.0
+        offset = 10.0
 
         if team == 1:
             x = map_width * X_MARGIN_RATIO + (index * map_width * X_SPACING_RATIO) + offset

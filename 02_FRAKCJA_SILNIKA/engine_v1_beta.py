@@ -75,7 +75,7 @@ AMMO_RANGE_WORLD = {
 # --- Stałe Konfiguracyjne Grafiki ---
 LOG_LEVEL = "DEBUG"
 #MAP_SEED = "road_trees.csv"
-MAP_SEED = "road_trees.csv"
+MAP_SEED = "road.csv"
 TARGET_FPS = 60
 SCALE = 3.5 # Współczynnik skalowania grafiki (wszystko będzie 4x większe)
 TILE_SIZE = 10  # To MUSI być zgodne z domyślną wartością w map_loader.py
@@ -655,7 +655,7 @@ def draw_tank(
     cx, cy = center_pos
 
     # heading vector (world -> screen: y flipped)
-    heading_len = 30
+    heading_len = 100
     theta = math.radians(-tank.heading)  # screen-space
     hx = cx + math.cos(theta) * heading_len
     hy = cy + math.sin(theta) * heading_len
