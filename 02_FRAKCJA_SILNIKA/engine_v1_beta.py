@@ -8,9 +8,13 @@ Ten skrypt automatycznie:
 4. Wyświetla na bieżąco stan gry: pozycje czołgów, strzały, power-upy.
 5. Po zakończeniu gry zamyka okno i serwery agentów.
 """
+
+prev_pos = {}  # tank_id -> (x, y)
+fov_dbg = True
+
 import json
 TILE_SIZE = 10
-SUBDIV = 5
+SUBDIV = 3
 CELL_SIZE = TILE_SIZE / SUBDIV
 
 def cell_center(cell):
@@ -38,6 +42,7 @@ from typing import Dict, Any, List
 try:
     current_file_dir = os.path.dirname(os.path.abspath(__file__))
     main_dir = os.path.dirname(current_file_dir)
+    AGENT_STATE_DIR = os.path.join(main_dir, "03_FRAKCJA_AGENTOW", "agent_states")
 
     if main_dir not in sys.path:
         sys.path.insert(0, main_dir)
@@ -55,31 +60,35 @@ except ImportError as e:
     print("Upewnij się, że skrypt jest uruchamiany z katalogu '02_FRAKCJA_SILNIKA' lub że struktura projektu jest poprawna.")
     sys.exit(1)
 
+# --- DEBUG: predicted shot rays (max range) ---
+PREDICTED_SHOTS = []   # list of dicts: {"start": (sx,sy), "end": (ex,ey), "life": int, "dist_world": float, "ammo": str}
+
+# Jeśli chcesz "zostajemy w pixelach/world units", to range też musi być w world units.
+# Ustaw to na to, co Twoim zdaniem jest specem silnika.
+AMMO_RANGE_WORLD = {
+    "HEAVY": 25.0,
+    "LIGHT": 50.0,
+    "LONG_DISTANCE": 100.0
+    }
+
+
 # --- Stałe Konfiguracyjne Grafiki ---
 LOG_LEVEL = "DEBUG"
+#MAP_SEED = "road_trees.csv"
 MAP_SEED = "road_trees.csv"
 TARGET_FPS = 60
-SCALE = 3  # Współczynnik skalowania grafiki (wszystko będzie 4x większe)
+SCALE = 3.5 # Współczynnik skalowania grafiki (wszystko będzie 4x większe)
 TILE_SIZE = 10  # To MUSI być zgodne z domyślną wartością w map_loader.py
 AGENT_NAME = "random_agent.py" # Nazwa pliku agenta
 
 AGENT_FILES = [
-    "random_agent.py",    
-    "random_agent.py",    
-    "random_agent.py",
-    "random_agent.py",
-    "random_agent.py",
+    "random_agent_seba.py",
     "random_agent_seba.py",
 ]
 
 ARGUMENTS = [
-    None,
-    None,
-    None,
-    None,
-    None,
     "2",
-
+    "2",
 ]
 
 ASSETS_BASE_PATH = os.path.join(current_file_dir, 'frontend', 'assets')
@@ -108,6 +117,256 @@ POWERUP_ASSET_MAP = {
     "AMMO_LIGHT": "AmmoBox_Light",
     "AMMO_LONG_DISTANCE": "AmmoBox_Sniper",
 }
+
+def _normalize_angle_180(a: float) -> float:
+    """[-180, 180]"""
+    while a > 180:
+        a -= 360
+    while a < -180:
+        a += 360
+    return a
+
+def draw_shot_debug_cone_and_hitdot(
+    map_surface: pygame.Surface,
+    shooter: Tank,
+    all_tanks: dict,             # game_loop.tanks
+    agent_actions: dict,         # game_loop.last_actions
+    scale: float,
+    map_h: int,
+    angle_eps_deg: float = 5.0,
+):
+    """
+    Wizualizacja dokładnie pod aktualne fire_projectile():
+    - strzał trafia gdy abs(angle_to_target - shoot_direction) <= angle_eps_deg
+    - wybieramy najbliższy w zasięgu
+    - celowanie jest do CENTER (Position) celu
+    """
+
+    # tylko jeśli agent kazał strzelać w tym ticku
+    act = agent_actions.get(shooter._id)
+    if not act or not getattr(act, "should_fire", False):
+        return
+
+    # ammo + range (WORLD units!) — dopasuj tu, jeśli w silniku Range jest w innych jednostkach
+    ammo_loaded = getattr(shooter, "ammo_loaded", None)
+    ammo_name = getattr(ammo_loaded, "name", str(ammo_loaded)).upper() if ammo_loaded else "NONE"
+
+    # Uwaga: w Twoim silniku ammo_range bierzesz z ammo.value["Range"].
+    # Tu (renderer) używamy Twojej mapy AMMO_RANGE_WORLD.
+    r_world = float(AMMO_RANGE_WORLD.get(ammo_name, 0.0))
+    if r_world <= 0.0:
+        return
+
+    # kierunek strzału jak w fizyce: heading + barrel_angle
+    shoot_dir_deg = _normalize_angle_180(shooter.heading + shooter.barrel_angle)
+
+    # pozycja i “koniec lufy” (tak jak u Ciebie w efektach)
+    shooter_center = Vector2(shooter.position.x * scale, map_h - (shooter.position.y * scale))
+    visual_dir = Vector2(1, 0).rotate(-shoot_dir_deg)  # screen-space (minus, bo Y flip)
+    barrel_len = (TILE_SIZE * scale) * 0.8
+    barrel_tip = shooter_center + visual_dir * barrel_len
+
+    # narysuj dwa promienie graniczne ±5°
+    left_dir  = Vector2(1, 0).rotate(-(shoot_dir_deg - angle_eps_deg))
+    right_dir = Vector2(1, 0).rotate(-(shoot_dir_deg + angle_eps_deg))
+
+    left_end  = barrel_tip + left_dir  * (r_world * scale)
+    right_end = barrel_tip + right_dir * (r_world * scale)
+
+    pygame.draw.line(map_surface, (255, 255, 0), (int(barrel_tip.x), int(barrel_tip.y)), (int(left_end.x), int(left_end.y)), 2)
+    pygame.draw.line(map_surface, (255, 255, 0), (int(barrel_tip.x), int(barrel_tip.y)), (int(right_end.x), int(right_end.y)), 2)
+
+    # znajdź “trafiony” cel wg tej samej logiki co fire_projectile()
+    best_target = None
+    best_dist = r_world  # closest_hit_distance init
+
+    sx, sy = shooter.position.x, shooter.position.y
+
+    for tid, target in all_tanks.items():
+        if target._id == shooter._id:
+            continue
+        if not target.is_alive():
+            continue
+
+        dx = target.position.x - sx
+        dy = target.position.y - sy
+        dist = math.hypot(dx, dy)
+        if dist >= best_dist:
+            continue
+
+        angle_to_target = math.degrees(math.atan2(dy, dx))
+        if abs(_normalize_angle_180(angle_to_target - shoot_dir_deg)) <= angle_eps_deg:
+            best_dist = dist
+            best_target = target
+
+    # duża czerwona kropka NAD celem (center + offset w screen-space)
+    if best_target is not None:
+        tx = best_target.position.x * scale
+        ty = map_h - (best_target.position.y * scale)
+
+        dot_pos = (int(tx), int(ty))
+        
+        pygame.draw.circle(map_surface, (255, 0, 0), dot_pos, 12)      # duża kropka
+        pygame.draw.circle(map_surface, (0, 0, 0), dot_pos, 12, 2)     # obrys dla czytelności
+
+        # opcjonalnie: podpis dystansu
+        font = pygame.font.Font(None, 18)
+        label = font.render(f"HIT? {best_dist:.1f}", True, (255, 0, 0))
+        map_surface.blit(label, (dot_pos[0] + 14, dot_pos[1] - 10))
+
+def draw_tank_weapon_range(map_surface: pygame.Surface, tank: Tank, scale: float, map_h: int):
+    """
+    Rysuje ciągłą linię zasięgu od końca lufy do max range aktualnie załadowanej amunicji.
+    Jednostki range traktujemy jako WORLD (czyli te same co pozycje x/y).
+    """
+    # ammo name
+    ammo_loaded = getattr(tank, "ammo_loaded", None)
+    ammo_name = getattr(ammo_loaded, "name", str(ammo_loaded)).upper() if ammo_loaded else "NONE"
+
+    # zasięgi WORLD (jak ustaliłeś: zostajemy w pixel/world, nic nie zmieniamy)
+    AMMO_RANGE_WORLD = {
+        "HEAVY": 25.0,
+        "LIGHT": 50.0,
+        "LONG_DISTANCE": 100.0,
+    }
+    r_world = float(AMMO_RANGE_WORLD.get(ammo_name, 0.0))
+    if r_world <= 0.0:
+        return
+
+    # kąt jak w Twoich efektach strzału (spójnie z wieżą)
+    final_turret_angle = tank.heading + tank.barrel_angle
+
+    # kierunek w screen-space
+    visual_dir = Vector2(1, 0).rotate(-final_turret_angle)  # 0° = w prawo
+    
+    # środek tanka w screen coords
+    tank_center = Vector2(tank.position.x * scale, map_h - (tank.position.y * scale))
+
+    # koniec lufy (heurystyka jak wcześniej)
+    barrel_len = (TILE_SIZE * scale) * 0.8
+    barrel_tip = tank_center + visual_dir * barrel_len
+
+    # punkt końcowy zasięgu
+    end_pt = barrel_tip + visual_dir * (r_world * scale)
+
+    # kolor wg drużyny (albo stały, tu: biały + lekki outline)
+    pygame.draw.line(map_surface, (255, 255, 255), (int(barrel_tip.x), int(barrel_tip.y)), (int(end_pt.x), int(end_pt.y)), 2)
+
+    # podpis w połowie
+    mx = int((barrel_tip.x + end_pt.x) * 0.5)
+    my = int((barrel_tip.y + end_pt.y) * 0.5)
+    font = pygame.font.Font(None, 18)
+    label = f"{ammo_name} {r_world:.1f}"
+    surf = font.render(label, True, (255, 255, 255))
+    map_surface.blit(surf, (mx + 6, my + 6))
+
+def draw_fov_overlay(map_surface, fov_dbg, scale, map_h, alpha=80):
+    if not fov_dbg:
+        return
+
+    origin = fov_dbg.get("origin")
+    cells = fov_dbg.get("cells", [])
+    rays = fov_dbg.get("rays", [])
+
+    if not origin:
+        return
+
+    overlay = pygame.Surface(map_surface.get_size(), pygame.SRCALPHA)
+
+    # 1) wypełnienie sub-komórek w FOV (zielony półprzezroczysty)
+    # rysujemy jako małe recty w skali SUBDIV
+    cell_px = int(CELL_SIZE * scale)
+
+    for c in cells:
+        ix, iy = int(c[0]), int(c[1])
+        # lewy-dolny róg komórki w świecie:
+        world_left = ix * CELL_SIZE
+        world_bottom = iy * CELL_SIZE
+
+        px_left = int(world_left * scale)
+        px_top  = int(map_h - ((world_bottom + CELL_SIZE) * scale))
+        pygame.draw.rect(overlay, (0, 255, 0, alpha), (px_left, px_top, cell_px, cell_px))
+
+    # 2) promienie graniczne (żółte)
+    ox = float(origin["x"]); oy = float(origin["y"])
+    sox = int(ox * scale); soy = int(map_h - (oy * scale))
+
+    for r in rays:
+        to = r.get("to")
+        if not to:
+            continue
+        tx = float(to["x"]); ty = float(to["y"])
+        stx = int(tx * scale); sty = int(map_h - (ty * scale))
+        pygame.draw.line(overlay, (255, 255, 0, 200), (sox, soy), (stx, sty), 2)
+
+    # 3) punkt origin (biały)
+    pygame.draw.circle(overlay, (255, 255, 255, 220), (sox, soy), 4)
+
+    map_surface.blit(overlay, (0, 0))
+
+def draw_graph_nodes(map_surface, debug, scale, map_h, fov_dbg=None, alpha=120):
+    if not debug:
+        return
+
+    nodes = debug.get("graph_nodes")
+    if not nodes:
+        return
+
+    # FOV musi iść "z silnika"/agenta -> bierzemy cells z debug["fov"] (albo z fov_dbg przekazanego z zewnątrz)
+    fov = fov_dbg or debug.get("fov")
+    fov_cells = set()
+    if fov and fov.get("cells"):
+        fov_cells = set((int(c[0]), int(c[1])) for c in fov["cells"])
+
+    overlay = pygame.Surface(map_surface.get_size(), pygame.SRCALPHA)
+    cell_px = int(CELL_SIZE * scale)
+
+    for n in nodes:
+        cx, cy = int(n["cell"][0]), int(n["cell"][1])
+
+        in_fov = (cx, cy) in fov_cells
+        blocked = bool(n.get("blocked", False))
+
+        # === Twoja logika kolorów ===
+        if blocked and not in_fov:
+            col = (255, 0, 0, alpha)          # czerwone = blocked poza FOV
+        elif (not blocked) and not in_fov:
+            col = (0, 120, 255, alpha)        # niebieskie = free poza FOV
+        elif blocked and in_fov:
+            col = (255, 165, 0, alpha)        # pomarańczowe = blocked w FOV
+        else:
+            col = (0, 255, 0, alpha)          # zielone = free w FOV
+
+        world_left = cx * CELL_SIZE
+        world_bottom = cy * CELL_SIZE
+        px_left = int(world_left * scale)
+        px_top  = int(map_h - ((world_bottom + CELL_SIZE) * scale))
+
+        pygame.draw.rect(overlay, col, (px_left, px_top, cell_px, cell_px))
+
+    map_surface.blit(overlay, (0, 0))
+
+    
+    
+    
+def draw_start_goal(map_surface, debug, scale, map_h):
+    if not debug:
+        return
+
+    start = debug.get("start_cell")
+    goal  = debug.get("goal_cell_candidate")  # używamy “kandydata”
+
+    def draw_cell(cell, color, r=7):
+        if not cell: 
+            return
+        wx, wy = cell_center((int(cell[0]), int(cell[1])))
+        sx = int(wx * scale)
+        sy = int(map_h - (wy * scale))
+        pygame.draw.circle(map_surface, color, (sx, sy), r)
+        pygame.draw.circle(map_surface, (0,0,0), (sx, sy), r, 1)
+
+    draw_cell(start, (0, 255, 0), r=7)     # start = zielony
+    draw_cell(goal,  (255, 0, 255), r=7)   # goal  = magenta
 
 
 def draw_agent_debug_path(map_surface, debug, scale, map_h):
@@ -317,7 +576,8 @@ def draw_tank(surface: pygame.Surface, tank: Tank, assets: Dict, scale: int, map
     # Obrót: Kąty w silniku rosną zgodnie z zegarem, a w Pygame przeciwnie.
     # Dlatego obracamy o wartość ujemną.
     # Dodatkowe -90 stopni, ponieważ assety są skierowane w lewo (180 deg), a nie w górę (90 deg).
-    rotated_body = pygame.transform.rotate(body_img, -tank.heading - 180)
+    BODY_OFFSET = 0
+    rotated_body = pygame.transform.rotate(body_img, tank.heading + BODY_OFFSET)
     body_rect = rotated_body.get_rect(center=center_pos)
     surface.blit(rotated_body, body_rect.topleft)
 
@@ -338,7 +598,7 @@ def draw_tank(surface: pygame.Surface, tank: Tank, assets: Dict, scale: int, map
         # --- Wieża ---
         turret_img = tank_assets['turret']
         # Kąt lufy jest względny do kadłuba, więc sumujemy kąty.
-        total_turret_angle = tank.heading - tank.barrel_angle
+        total_turret_angle = tank.heading + tank.barrel_angle
         rotated_turret = pygame.transform.rotate(turret_img, -total_turret_angle - 180)
         turret_rect = rotated_turret.get_rect(center=center_pos)
         surface.blit(rotated_turret, turret_rect.topleft)
@@ -362,6 +622,38 @@ def draw_tank(surface: pygame.Surface, tank: Tank, assets: Dict, scale: int, map
         hp_bar_y = center_pos[1] - (body_img.get_height() / 2) - 15 # Trochę wyżej
         pygame.draw.rect(surface, (50, 50, 50), (hp_bar_x, hp_bar_y, hp_bar_width, hp_bar_height))
         pygame.draw.rect(surface, (0, 255, 0), (hp_bar_x, hp_bar_y, hp_bar_width * hp_ratio, hp_bar_height))
+        
+        # --- DEBUG: heading vector vs velocity vector ---
+    cx, cy = center_pos
+
+    # heading vector (world -> screen: y flipped, so angle sign negated like you already do)
+    heading_len = 30
+    theta = math.radians(-tank.heading)  # screen-space
+    hx = cx + math.cos(theta) * heading_len
+    hy = cy + math.sin(theta) * heading_len
+    pygame.draw.line(surface, (255, 255, 255), (cx, cy), (hx, hy), 2)  # white = heading
+
+    # velocity vector from last frame
+    pid = tank._id
+    p = prev_pos.get(pid)
+    if p is not None:
+        lastx, lasty = p
+        vx = tank.position.x - lastx
+        vy = tank.position.y - lasty
+
+        # convert velocity to screen (flip y)
+        # world vy up -> screen vy down, so invert vy
+        vxs = vx
+        vys = -vy
+
+        vlen = math.hypot(vxs, vys)
+        if vlen > 1e-6:
+            scale_v = 60.0  # visual scale
+            ex = cx + (vxs / vlen) * scale_v
+            ey = cy + (vys / vlen) * scale_v
+            pygame.draw.line(surface, (255, 255, 0), (cx, cy), (ex, ey), 2)  # yellow = motion
+
+    prev_pos[pid] = (tank.position.x, tank.position.y)
 
 def draw_shot_effect(surface: pygame.Surface, start_pos: Dict, end_pos: Dict, life: int, scale: int, map_height: int):
     """Rysuje linię symbolizującą strzał z uwzględnieniem skali."""
@@ -788,7 +1080,7 @@ def main():
                 # 1. Efekt wystrzału z lufy (stożek)
                 if shooter_tank:
                     # Używamy tej samej logiki kąta co przy rysowaniu wieży, aby zapewnić spójność
-                    final_turret_angle = shooter_tank.heading - shooter_tank.barrel_angle
+                    final_turret_angle = shooter_tank.heading + shooter_tank.barrel_angle
                     
                     # Wektor kierunku lufy (wizualny, na podstawie kąta czołgu)
                     visual_barrel_direction = Vector2(0, -1).rotate(-final_turret_angle)
@@ -869,19 +1161,48 @@ def main():
             # Rysowanie czołgów
             for tank in game_loop.tanks.values():
                 draw_tank(map_surface, tank, assets, SCALE, map_render_height)
+                if tank.is_alive():
+                    draw_tank_weapon_range(map_surface, tank, SCALE, map_render_height)
 
-            debug = None
-            try:
-                with open("agent_state.json", "r") as f:
-                    st = json.load(f)
-                debug = st.get("debug")
-            except Exception:
-                pass
+                    # NEW: debug cone ±5° + hit-dot “punkt trafienia” wg fizyki
+                    draw_shot_debug_cone_and_hitdot(
+                        map_surface=map_surface,
+                        shooter=tank,
+                        all_tanks=game_loop.tanks,
+                        agent_actions=agent_actions,
+                        scale=SCALE,
+                        map_h=map_render_height,
+                        angle_eps_deg=5.0
+                )
+
+            # ===== DEBUG JSON: read per-agent file (agent_states/agent_state_Bot_X.json) =====
+            debug_by_tank_id = {}
+
+            # Uwaga: Bot_1..Bot_N są tworzeni w Twoim launcherze w tej samej pętli co porty.
+            sorted_tanks = sorted(game_loop.tanks.values(), key=lambda t: t._id)
+
+            for idx, tank in enumerate(sorted_tanks, start=1):
+                agent_name = f"Bot_{idx}"
+                state_path = os.path.join(AGENT_STATE_DIR, f"agent_state_{agent_name}.json")
+                try:
+                    with open(state_path, "r", encoding="utf-8") as f:
+                        st = json.load(f)
+                    debug_by_tank_id[tank._id] = st.get("debug")
+                except Exception:
+                    pass
+
+            # Focus = dla kogo rysujemy overlay (na start: pierwszy tank)
+            focus_tank_id = sorted_tanks[0]._id if sorted_tanks else None
+            debug = debug_by_tank_id.get(focus_tank_id) if focus_tank_id is not None else None
+
             if debug:
                 seen_tiles = debug.get("seen_terrain_tiles", [])
+                fov_dbg = debug.get("fov")
+            else:
+                seen_tiles = []
+                fov_dbg = None
+            # ======================================================================
                 
-            draw_seen_terrain_tiles(map_surface, seen_tiles, SCALE, map_render_height, alpha=0.5)
-            draw_agent_debug_path(map_surface, debug, SCALE, map_render_height)
 
             # Rysowanie i aktualizacja efektów strzałów
             remaining_shots = []
@@ -903,12 +1224,57 @@ def main():
             explosion_particles = remaining_particles
 
             # Rysowanie finalnej mapy na środku ekranu i UI po bokach
-            screen.blit(map_surface, map_rect)
+            # --- overlays na map_surface NAJPIERW ---
+            # ===== DEBUG JSON: read all agent state files =====
+            debug_by_tank_id = {}
+
+            sorted_tanks = sorted(game_loop.tanks.values(), key=lambda t: t._id)
+
+            for idx, tank in enumerate(sorted_tanks, start=1):
+                agent_name = f"Bot_{idx}"
+                state_path = os.path.join(AGENT_STATE_DIR, f"agent_state_{agent_name}.json")
+                try:
+                    with open(state_path, "r", encoding="utf-8") as f:
+                        st = json.load(f)
+                    debug_by_tank_id[tank._id] = st.get("debug")
+                except Exception:
+                    pass
+
+            # ===== RENDER DEBUG FOR ALL AGENTS =====
+            for tid, dbg in debug_by_tank_id.items():
+                if not dbg:
+                    continue
+
+                seen_tiles = dbg.get("seen_terrain_tiles", [])
+                fov_dbg = dbg.get("fov")
+
+                draw_seen_terrain_tiles(map_surface, seen_tiles, SCALE, map_render_height, alpha=0.25)
+                draw_graph_nodes(map_surface, dbg, SCALE, map_render_height, fov_dbg=fov_dbg, alpha=60)
+                draw_start_goal(map_surface, dbg, SCALE, map_render_height)
+                draw_agent_debug_path(map_surface, dbg, SCALE, map_render_height)
+            # ====================================================
+            
+            # --- UI na screen ---
             draw_ui(screen, font, game_loop, window_width, map_rect, assets)
             draw_debug_info(screen, font, clock, current_tick)
+            
+            for tank in game_loop.tanks.values():
+                if tank.is_alive():
+                    draw_shot_debug_cone_and_hitdot(
+                        map_surface,
+                        tank,
+                        game_loop.tanks,
+                        agent_actions,
+                        SCALE,
+                        map_render_height,
+                        angle_eps_deg=5.0
+                    )
+            
+            screen.blit(map_surface, map_rect)
 
             pygame.display.flip()
             clock.tick(TARGET_FPS)
+            
 
         # --- Koniec Pętli ---
         print("--- Pętla gry zakończona ---")
