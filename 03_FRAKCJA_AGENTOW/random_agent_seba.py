@@ -889,7 +889,7 @@ class RandomAgent:
             reload_timer = self.dynamic_info.get("current_reload_progress", 0)
 
         try:
-            if int(reload_timer) > 0:
+            if reload_timer is not None and reload_timer > 0:
                 return False
         except:
             pass
