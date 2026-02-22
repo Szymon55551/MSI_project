@@ -392,7 +392,7 @@ class GameLoop:
             # Team 1 tanks
             for i in range(TEAM_A_NBR):
                 tank_id = f"tank_1_{i + 1}"
-                tank_type = 1  # 1=Light, 2=Heavy, 3=Sniper
+                tank_type = random.choice([1,3])  # 1=Light, 2=Heavy, 3=Sniper
                 spawn_pos = self._get_spawn_position(1, i)
                 
                 tank = self._create_tank(tank_id, 1, tank_type, spawn_pos)
