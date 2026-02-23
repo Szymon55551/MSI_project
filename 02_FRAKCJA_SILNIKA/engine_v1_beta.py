@@ -71,23 +71,32 @@ AMMO_RANGE_WORLD = {
 
 
 # --- Stałe Konfiguracyjne Grafiki ---
-LOG_LEVEL = "DEBUG"
+#LOG_LEVEL = "DEBUG"
+LOG_LEVEL = "CRITICAL"
 #MAP_SEED = "road_trees.csv"
-MAP_SEED = "road_trees.csv"
+MAP_SEED = "advanced_road_trees.csv"
 TARGET_FPS = 60
-SCALE = 3.5 # Współczynnik skalowania grafiki (wszystko będzie 4x większe)
+SCALE = 3 # Współczynnik skalowania grafiki (wszystko będzie 4x większe)
 TILE_SIZE = 10  # To MUSI być zgodne z domyślną wartością w map_loader.py
 AGENT_NAME = "random_agent.py" # Nazwa pliku agenta
 
 AGENT_FILES = [
     "random_agent_seba.py",
     "random_agent_seba.py",
+    "random_agent_seba.py",
+    #"random_agent_seba.py",
+    #"random_agent_seba.py",
+    "random_agent_seba.py"
 
 ]
 
 ARGUMENTS = [
+    #"2",
+    #"2",   
     "2",
-    "2",    
+    "2",
+    "2",
+    "2"
 
 ]
 
@@ -1312,7 +1321,7 @@ def main():
                 seen_tiles = dbg.get("seen_terrain_tiles", [])
                 fov_dbg = dbg.get("fov")
 
-                draw_seen_terrain_tiles(map_surface, seen_tiles, SCALE, map_render_height, alpha=0.25)
+                #draw_seen_terrain_tiles(map_surface, seen_tiles, SCALE, map_render_height, alpha=0.25)
                 draw_graph_nodes(map_surface, dbg, SCALE, map_render_height, fov_dbg=fov_dbg, alpha=60)
                 draw_start_goal(map_surface, dbg, SCALE, map_render_height)
                 draw_agent_debug_path(map_surface, dbg, SCALE, map_render_height)
