@@ -1,0 +1,285 @@
+{
+    "current_tick": 1980,
+    "static_info": {
+        "id": "tank_1_4",
+        "team": 1,
+        "tank_type": "LIGHT",
+        "vision_angle": 40.0,
+        "vision_range": 70.0,
+        "top_speed": 5.0,
+        "barrel_spin_rate": 30,
+        "heading_spin_rate": 2,
+        "max_hp": 80,
+        "max_shield": 30
+    },
+    "dynamic_info": {
+        "hp": 80,
+        "shield": 20,
+        "position": {
+            "x": 6.254426894396042,
+            "y": 149.8057267555546
+        },
+        "move_speed": 5.0,
+        "barrel_angle": 120.0,
+        "heading": -133.44470328413078,
+        "ammo": {
+            "HEAVY": {
+                "count": 1,
+                "_ammo_type": "HEAVY"
+            },
+            "LIGHT": {
+                "count": 15,
+                "_ammo_type": "LIGHT"
+            },
+            "LONG_DISTANCE": {
+                "count": 2,
+                "_ammo_type": "LONG_DISTANCE"
+            }
+        },
+        "ammo_loaded": "LIGHT",
+        "is_overcharged": false,
+        "size": "MISSING",
+        "reload_timer": 0.0,
+        "enemies_remaining": 5,
+        "visible_tanks": [],
+        "visible_enemies": [],
+        "visible_friends": [],
+        "visible_obstacles": [
+            {
+                "id": "0861138f-e668-4c06-861d-2d78fde8c972",
+                "position": {
+                    "x": 25.0,
+                    "y": 145.0
+                },
+                "type": "WALL",
+                "is_destructible": false
+            }
+        ],
+        "visible_terrains": [],
+        "visible_powerups": []
+    },
+    "meta_info": {
+        "closest_enemy_angle": 10.0,
+        "closest_enemy_dist": 9999.0,
+        "target_id": null,
+        "is_aimed_at": false
+    },
+    "memory": {},
+    "agent_role": {
+        "type": null,
+        "enabled": true
+    },
+    "debug": {
+        "goal_cell": [
+            19,
+            19
+        ],
+        "path": [
+            [
+                0,
+                14
+            ],
+            [
+                0,
+                15
+            ],
+            [
+                0,
+                16
+            ],
+            [
+                1,
+                17
+            ],
+            [
+                2,
+                18
+            ],
+            [
+                2,
+                19
+            ],
+            [
+                3,
+                19
+            ],
+            [
+                4,
+                19
+            ],
+            [
+                5,
+                19
+            ],
+            [
+                6,
+                19
+            ],
+            [
+                7,
+                19
+            ],
+            [
+                8,
+                19
+            ],
+            [
+                9,
+                19
+            ],
+            [
+                10,
+                19
+            ],
+            [
+                11,
+                19
+            ],
+            [
+                12,
+                19
+            ],
+            [
+                13,
+                19
+            ],
+            [
+                14,
+                19
+            ],
+            [
+                15,
+                19
+            ],
+            [
+                16,
+                19
+            ],
+            [
+                17,
+                19
+            ],
+            [
+                18,
+                19
+            ],
+            [
+                19,
+                19
+            ]
+        ],
+        "path_index": 1,
+        "seen_terrain_tiles": [],
+        "my_pos": {
+            "x": 6.254426894396042,
+            "y": 149.8057267555546
+        },
+        "fov": {
+            "tick": 1980,
+            "origin": {
+                "x": 6.254426894396042,
+                "y": 149.8057267555546
+            },
+            "vr": 70.0,
+            "va": 40.0,
+            "heading": -133.44470328413078,
+            "cells": [
+                [
+                    -5,
+                    10
+                ],
+                [
+                    -5,
+                    11
+                ],
+                [
+                    -4,
+                    9
+                ],
+                [
+                    -4,
+                    10
+                ],
+                [
+                    -4,
+                    11
+                ],
+                [
+                    -4,
+                    12
+                ],
+                [
+                    -3,
+                    9
+                ],
+                [
+                    -3,
+                    10
+                ],
+                [
+                    -3,
+                    11
+                ],
+                [
+                    -3,
+                    12
+                ],
+                [
+                    -2,
+                    10
+                ],
+                [
+                    -2,
+                    11
+                ],
+                [
+                    -2,
+                    12
+                ],
+                [
+                    -2,
+                    13
+                ],
+                [
+                    -1,
+                    12
+                ],
+                [
+                    -1,
+                    13
+                ]
+            ],
+            "bbox": [
+                -7,
+                7,
+                7,
+                21
+            ],
+            "rays": [
+                {
+                    "from": {
+                        "x": 6.254426894396042,
+                        "y": 149.8057267555546
+                    },
+                    "to": {
+                        "x": -56.36080515688503,
+                        "y": 118.51143470150383
+                    }
+                },
+                {
+                    "from": {
+                        "x": 6.254426894396042,
+                        "y": 149.8057267555546
+                    },
+                    "to": {
+                        "x": -21.596040486837403,
+                        "y": 85.58461288599567
+                    }
+                }
+            ]
+        },
+        "graph_nodes": null,
+        "start_cell": null,
+        "goal_cell_candidate": null
+    }
+}

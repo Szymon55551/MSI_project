@@ -1,0 +1,668 @@
+{
+    "current_tick": 1980,
+    "static_info": {
+        "id": "tank_1_1",
+        "team": 1,
+        "tank_type": "Sniper",
+        "vision_angle": 20.0,
+        "vision_range": 120.0,
+        "top_speed": 3.0,
+        "barrel_spin_rate": 30,
+        "heading_spin_rate": 2,
+        "max_hp": 40,
+        "max_shield": 30
+    },
+    "dynamic_info": {
+        "hp": 40,
+        "shield": 30,
+        "position": {
+            "x": 68.13820837602302,
+            "y": 35.342356553188154
+        },
+        "move_speed": 3.0,
+        "barrel_angle": -3.5676528539403307,
+        "heading": -2.856299692754476,
+        "ammo": {
+            "HEAVY": {
+                "count": 1,
+                "_ammo_type": "HEAVY"
+            },
+            "LIGHT": {
+                "count": 5,
+                "_ammo_type": "LIGHT"
+            },
+            "LONG_DISTANCE": {
+                "count": 10,
+                "_ammo_type": "LONG_DISTANCE"
+            }
+        },
+        "ammo_loaded": "LONG_DISTANCE",
+        "is_overcharged": false,
+        "size": "MISSING",
+        "reload_timer": 0.0,
+        "enemies_remaining": 5,
+        "visible_tanks": [
+            {
+                "id": "tank_2_1",
+                "team": 2,
+                "tank_type": "HEAVY",
+                "position": {
+                    "x": 172.59584314319835,
+                    "y": 20.06737385736759
+                },
+                "is_damaged": false,
+                "heading": 115.48778473235595,
+                "barrel_angle": 120.0,
+                "distance": 105.56856803760395
+            }
+        ],
+        "visible_enemies": [
+            {
+                "id": "tank_2_1",
+                "team": 2,
+                "tank_type": "HEAVY",
+                "position": {
+                    "x": 172.59584314319835,
+                    "y": 20.06737385736759
+                },
+                "is_damaged": false,
+                "heading": 115.48778473235595,
+                "barrel_angle": 120.0,
+                "distance": 105.56856803760395
+            }
+        ],
+        "visible_friends": [],
+        "visible_obstacles": [
+            {
+                "id": "ade5dd3d-37bc-498a-857b-7d8fa679d08a",
+                "position": {
+                    "x": 185.0,
+                    "y": 35.0
+                },
+                "type": "ANTI_TANK_SPIKE",
+                "is_destructible": false
+            }
+        ],
+        "visible_terrains": [
+            {
+                "position": {
+                    "x": 175.0,
+                    "y": 5.0
+                },
+                "type": "Grass",
+                "speed_modifier": 1.0,
+                "dmg": 0
+            },
+            {
+                "position": {
+                    "x": 145.0,
+                    "y": 15.0
+                },
+                "type": "Road",
+                "speed_modifier": 1.5,
+                "dmg": 0
+            },
+            {
+                "position": {
+                    "x": 155.0,
+                    "y": 15.0
+                },
+                "type": "PotholeRoad",
+                "speed_modifier": 0.95,
+                "dmg": 1
+            },
+            {
+                "position": {
+                    "x": 165.0,
+                    "y": 15.0
+                },
+                "type": "Swamp",
+                "speed_modifier": 0.4,
+                "dmg": 0
+            },
+            {
+                "position": {
+                    "x": 175.0,
+                    "y": 15.0
+                },
+                "type": "Grass",
+                "speed_modifier": 1.0,
+                "dmg": 0
+            },
+            {
+                "position": {
+                    "x": 185.0,
+                    "y": 15.0
+                },
+                "type": "Grass",
+                "speed_modifier": 1.0,
+                "dmg": 0
+            },
+            {
+                "position": {
+                    "x": 105.0,
+                    "y": 25.0
+                },
+                "type": "Grass",
+                "speed_modifier": 1.0,
+                "dmg": 0
+            },
+            {
+                "position": {
+                    "x": 115.0,
+                    "y": 25.0
+                },
+                "type": "Grass",
+                "speed_modifier": 1.0,
+                "dmg": 0
+            },
+            {
+                "position": {
+                    "x": 125.0,
+                    "y": 25.0
+                },
+                "type": "Grass",
+                "speed_modifier": 1.0,
+                "dmg": 0
+            },
+            {
+                "position": {
+                    "x": 135.0,
+                    "y": 25.0
+                },
+                "type": "Grass",
+                "speed_modifier": 1.0,
+                "dmg": 0
+            },
+            {
+                "position": {
+                    "x": 145.0,
+                    "y": 25.0
+                },
+                "type": "Road",
+                "speed_modifier": 1.5,
+                "dmg": 0
+            },
+            {
+                "position": {
+                    "x": 155.0,
+                    "y": 25.0
+                },
+                "type": "Swamp",
+                "speed_modifier": 0.4,
+                "dmg": 0
+            },
+            {
+                "position": {
+                    "x": 165.0,
+                    "y": 25.0
+                },
+                "type": "Road",
+                "speed_modifier": 1.5,
+                "dmg": 0
+            },
+            {
+                "position": {
+                    "x": 175.0,
+                    "y": 25.0
+                },
+                "type": "Grass",
+                "speed_modifier": 1.0,
+                "dmg": 0
+            },
+            {
+                "position": {
+                    "x": 185.0,
+                    "y": 25.0
+                },
+                "type": "Grass",
+                "speed_modifier": 1.0,
+                "dmg": 0
+            },
+            {
+                "position": {
+                    "x": 75.0,
+                    "y": 35.0
+                },
+                "type": "Grass",
+                "speed_modifier": 1.0,
+                "dmg": 0
+            },
+            {
+                "position": {
+                    "x": 85.0,
+                    "y": 35.0
+                },
+                "type": "Grass",
+                "speed_modifier": 1.0,
+                "dmg": 0
+            },
+            {
+                "position": {
+                    "x": 95.0,
+                    "y": 35.0
+                },
+                "type": "Grass",
+                "speed_modifier": 1.0,
+                "dmg": 0
+            },
+            {
+                "position": {
+                    "x": 105.0,
+                    "y": 35.0
+                },
+                "type": "Grass",
+                "speed_modifier": 1.0,
+                "dmg": 0
+            },
+            {
+                "position": {
+                    "x": 115.0,
+                    "y": 35.0
+                },
+                "type": "Grass",
+                "speed_modifier": 1.0,
+                "dmg": 0
+            },
+            {
+                "position": {
+                    "x": 125.0,
+                    "y": 35.0
+                },
+                "type": "Grass",
+                "speed_modifier": 1.0,
+                "dmg": 0
+            },
+            {
+                "position": {
+                    "x": 135.0,
+                    "y": 35.0
+                },
+                "type": "Grass",
+                "speed_modifier": 1.0,
+                "dmg": 0
+            },
+            {
+                "position": {
+                    "x": 145.0,
+                    "y": 35.0
+                },
+                "type": "Grass",
+                "speed_modifier": 1.0,
+                "dmg": 0
+            },
+            {
+                "position": {
+                    "x": 155.0,
+                    "y": 35.0
+                },
+                "type": "Swamp",
+                "speed_modifier": 0.4,
+                "dmg": 0
+            },
+            {
+                "position": {
+                    "x": 165.0,
+                    "y": 35.0
+                },
+                "type": "Grass",
+                "speed_modifier": 1.0,
+                "dmg": 0
+            },
+            {
+                "position": {
+                    "x": 175.0,
+                    "y": 35.0
+                },
+                "type": "Grass",
+                "speed_modifier": 1.0,
+                "dmg": 0
+            }
+        ],
+        "visible_powerups": []
+    },
+    "meta_info": {
+        "closest_enemy_angle": -4.751821563053738,
+        "closest_enemy_dist": 105.56856803760395,
+        "target_id": "tank_2_1",
+        "is_aimed_at": false
+    },
+    "memory": {
+        "tank_2_1": {
+            "id": "tank_2_1",
+            "last_seen_pos": {
+                "x": 172.59584314319835,
+                "y": 20.06737385736759
+            },
+            "last_seen_tick": 1980,
+            "tank_type": "HEAVY",
+            "team": 2
+        }
+    },
+    "agent_role": {
+        "type": null,
+        "enabled": true
+    },
+    "debug": {
+        "goal_cell": [
+            17,
+            2
+        ],
+        "path": [
+            [
+                6,
+                3
+            ],
+            [
+                7,
+                3
+            ],
+            [
+                8,
+                3
+            ],
+            [
+                9,
+                3
+            ],
+            [
+                10,
+                3
+            ],
+            [
+                11,
+                3
+            ],
+            [
+                12,
+                3
+            ],
+            [
+                13,
+                3
+            ],
+            [
+                14,
+                3
+            ],
+            [
+                15,
+                4
+            ],
+            [
+                16,
+                3
+            ],
+            [
+                16,
+                2
+            ],
+            [
+                17,
+                2
+            ]
+        ],
+        "path_index": 1,
+        "seen_terrain_tiles": [
+            [
+                17,
+                0
+            ],
+            [
+                14,
+                1
+            ],
+            [
+                15,
+                1
+            ],
+            [
+                16,
+                1
+            ],
+            [
+                17,
+                1
+            ],
+            [
+                18,
+                1
+            ],
+            [
+                10,
+                2
+            ],
+            [
+                11,
+                2
+            ],
+            [
+                12,
+                2
+            ],
+            [
+                13,
+                2
+            ],
+            [
+                14,
+                2
+            ],
+            [
+                15,
+                2
+            ],
+            [
+                16,
+                2
+            ],
+            [
+                17,
+                2
+            ],
+            [
+                18,
+                2
+            ],
+            [
+                7,
+                3
+            ],
+            [
+                8,
+                3
+            ],
+            [
+                9,
+                3
+            ],
+            [
+                10,
+                3
+            ],
+            [
+                11,
+                3
+            ],
+            [
+                12,
+                3
+            ],
+            [
+                13,
+                3
+            ],
+            [
+                14,
+                3
+            ],
+            [
+                15,
+                3
+            ],
+            [
+                16,
+                3
+            ],
+            [
+                17,
+                3
+            ]
+        ],
+        "my_pos": {
+            "x": 68.13820837602302,
+            "y": 35.342356553188154
+        },
+        "fov": {
+            "tick": 1980,
+            "origin": {
+                "x": 68.13820837602302,
+                "y": 35.342356553188154
+            },
+            "vr": 120.0,
+            "va": 20.0,
+            "heading": -2.856299692754476,
+            "cells": [
+                [
+                    7,
+                    3
+                ],
+                [
+                    8,
+                    3
+                ],
+                [
+                    9,
+                    3
+                ],
+                [
+                    10,
+                    3
+                ],
+                [
+                    11,
+                    2
+                ],
+                [
+                    11,
+                    3
+                ],
+                [
+                    12,
+                    2
+                ],
+                [
+                    12,
+                    3
+                ],
+                [
+                    13,
+                    2
+                ],
+                [
+                    13,
+                    3
+                ],
+                [
+                    14,
+                    2
+                ],
+                [
+                    14,
+                    3
+                ],
+                [
+                    15,
+                    2
+                ],
+                [
+                    15,
+                    3
+                ],
+                [
+                    15,
+                    4
+                ],
+                [
+                    16,
+                    1
+                ],
+                [
+                    16,
+                    2
+                ],
+                [
+                    16,
+                    3
+                ],
+                [
+                    16,
+                    4
+                ],
+                [
+                    17,
+                    1
+                ],
+                [
+                    17,
+                    2
+                ],
+                [
+                    17,
+                    3
+                ],
+                [
+                    17,
+                    4
+                ],
+                [
+                    18,
+                    1
+                ],
+                [
+                    18,
+                    2
+                ],
+                [
+                    18,
+                    3
+                ],
+                [
+                    18,
+                    4
+                ]
+            ],
+            "bbox": [
+                -6,
+                -9,
+                18,
+                15
+            ],
+            "rays": [
+                {
+                    "from": {
+                        "x": 68.13820837602302,
+                        "y": 35.342356553188154
+                    },
+                    "to": {
+                        "x": 185.12995077920047,
+                        "y": 8.641566125401791
+                    }
+                },
+                {
+                    "from": {
+                        "x": 68.13820837602302,
+                        "y": 35.342356553188154
+                    },
+                    "to": {
+                        "x": 187.20669357419487,
+                        "y": 50.265353323700815
+                    }
+                }
+            ]
+        },
+        "graph_nodes": null,
+        "start_cell": null,
+        "goal_cell_candidate": null
+    }
+}

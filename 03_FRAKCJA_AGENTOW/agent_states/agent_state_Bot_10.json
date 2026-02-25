@@ -1,0 +1,327 @@
+{
+    "current_tick": 1980,
+    "static_info": {
+        "id": "tank_2_5",
+        "team": 2,
+        "tank_type": "LIGHT",
+        "vision_angle": 40.0,
+        "vision_range": 70.0,
+        "top_speed": 5.0,
+        "barrel_spin_rate": 30,
+        "heading_spin_rate": 2,
+        "max_hp": 80,
+        "max_shield": 30
+    },
+    "dynamic_info": {
+        "hp": 80,
+        "shield": 30,
+        "position": {
+            "x": 185.99359852975542,
+            "y": 188.30390470616766
+        },
+        "move_speed": -5.0,
+        "barrel_angle": 120.0,
+        "heading": 110.28174690031744,
+        "ammo": {
+            "HEAVY": {
+                "count": 1,
+                "_ammo_type": "HEAVY"
+            },
+            "LIGHT": {
+                "count": 15,
+                "_ammo_type": "LIGHT"
+            },
+            "LONG_DISTANCE": {
+                "count": 2,
+                "_ammo_type": "LONG_DISTANCE"
+            }
+        },
+        "ammo_loaded": "LONG_DISTANCE",
+        "is_overcharged": false,
+        "size": "MISSING",
+        "reload_timer": 0.0,
+        "enemies_remaining": 5,
+        "visible_tanks": [],
+        "visible_enemies": [],
+        "visible_friends": [],
+        "visible_obstacles": [
+            {
+                "id": "2d6cd830-5357-431f-8be8-6a650aae6d8c",
+                "position": {
+                    "x": 155.0,
+                    "y": 155.0
+                },
+                "type": "TREE",
+                "is_destructible": true
+            },
+            {
+                "id": "caedf784-8b28-4e47-9942-3141146e5c30",
+                "position": {
+                    "x": 165.0,
+                    "y": 155.0
+                },
+                "type": "TREE",
+                "is_destructible": true
+            }
+        ],
+        "visible_terrains": [
+            {
+                "position": {
+                    "x": 135.0,
+                    "y": 155.0
+                },
+                "type": "Grass",
+                "speed_modifier": 1.0,
+                "dmg": 0
+            },
+            {
+                "position": {
+                    "x": 155.0,
+                    "y": 165.0
+                },
+                "type": "Water",
+                "speed_modifier": 0.7,
+                "dmg": 1
+            },
+            {
+                "position": {
+                    "x": 165.0,
+                    "y": 165.0
+                },
+                "type": "Water",
+                "speed_modifier": 0.7,
+                "dmg": 1
+            },
+            {
+                "position": {
+                    "x": 175.0,
+                    "y": 165.0
+                },
+                "type": "Grass",
+                "speed_modifier": 1.0,
+                "dmg": 0
+            },
+            {
+                "position": {
+                    "x": 165.0,
+                    "y": 175.0
+                },
+                "type": "Water",
+                "speed_modifier": 0.7,
+                "dmg": 1
+            },
+            {
+                "position": {
+                    "x": 175.0,
+                    "y": 175.0
+                },
+                "type": "Grass",
+                "speed_modifier": 1.0,
+                "dmg": 0
+            }
+        ],
+        "visible_powerups": [
+            {
+                "id": "",
+                "position": {
+                    "x": 179.89177387892315,
+                    "y": 178.55161211850165
+                },
+                "powerup_type": "PowerUpType.SHIELD"
+            }
+        ]
+    },
+    "meta_info": {
+        "closest_enemy_angle": 10.0,
+        "closest_enemy_dist": 9999.0,
+        "target_id": null,
+        "is_aimed_at": false
+    },
+    "memory": {},
+    "agent_role": {
+        "type": null,
+        "enabled": true
+    },
+    "debug": {
+        "goal_cell": [
+            19,
+            19
+        ],
+        "path": [
+            [
+                18,
+                18
+            ],
+            [
+                18,
+                19
+            ],
+            [
+                19,
+                19
+            ]
+        ],
+        "path_index": 1,
+        "seen_terrain_tiles": [
+            [
+                13,
+                15
+            ],
+            [
+                15,
+                16
+            ],
+            [
+                16,
+                16
+            ],
+            [
+                17,
+                16
+            ],
+            [
+                16,
+                17
+            ],
+            [
+                17,
+                17
+            ]
+        ],
+        "my_pos": {
+            "x": 185.99359852975542,
+            "y": 188.30390470616766
+        },
+        "fov": {
+            "tick": 1980,
+            "origin": {
+                "x": 185.99359852975542,
+                "y": 188.30390470616766
+            },
+            "vr": 70.0,
+            "va": 40.0,
+            "heading": 110.28174690031744,
+            "cells": [
+                [
+                    14,
+                    24
+                ],
+                [
+                    15,
+                    22
+                ],
+                [
+                    15,
+                    23
+                ],
+                [
+                    15,
+                    24
+                ],
+                [
+                    16,
+                    21
+                ],
+                [
+                    16,
+                    22
+                ],
+                [
+                    16,
+                    23
+                ],
+                [
+                    16,
+                    24
+                ],
+                [
+                    16,
+                    25
+                ],
+                [
+                    17,
+                    20
+                ],
+                [
+                    17,
+                    21
+                ],
+                [
+                    17,
+                    22
+                ],
+                [
+                    17,
+                    23
+                ],
+                [
+                    17,
+                    24
+                ],
+                [
+                    17,
+                    25
+                ],
+                [
+                    18,
+                    19
+                ],
+                [
+                    18,
+                    20
+                ],
+                [
+                    18,
+                    21
+                ],
+                [
+                    18,
+                    22
+                ],
+                [
+                    18,
+                    23
+                ],
+                [
+                    18,
+                    24
+                ],
+                [
+                    18,
+                    25
+                ]
+            ],
+            "bbox": [
+                11,
+                11,
+                25,
+                25
+            ],
+            "rays": [
+                {
+                    "from": {
+                        "x": 185.99359852975542,
+                        "y": 188.30390470616766
+                    },
+                    "to": {
+                        "x": 185.64938114226092,
+                        "y": 258.30305837526674
+                    }
+                },
+                {
+                    "from": {
+                        "x": 185.99359852975542,
+                        "y": 188.30390470616766
+                    },
+                    "to": {
+                        "x": 140.73532404579936,
+                        "y": 241.7051087256923
+                    }
+                }
+            ]
+        },
+        "graph_nodes": null,
+        "start_cell": null,
+        "goal_cell_candidate": null
+    }
+}

@@ -67,8 +67,8 @@ TEAM_COLORS = {
     2: (255, 50, 50)    # Czerwony
 }
 TOURNAMENT = True
-AGENT_TEAM_1_FILE = "agent1.py"
-AGENT_TEAM_2_FILE = "agent2.py"
+AGENT_TEAM_1_FILE = "random_agent_seba.py"
+AGENT_TEAM_2_FILE = "random_agent_seba.py"
 # "agent1.py", "agent2.py", "agent3.py", "agent4.py", "agent5.py",
 # "agent6.py", "agent7.py", "agent8.py", "agent9.py", "agent10.py"
 CUSTOM_AGENT_LIST = [

@@ -1,0 +1,331 @@
+{
+    "current_tick": 1980,
+    "static_info": {
+        "id": "tank_1_5",
+        "team": 1,
+        "tank_type": "Sniper",
+        "vision_angle": 20.0,
+        "vision_range": 120.0,
+        "top_speed": 3.0,
+        "barrel_spin_rate": 30,
+        "heading_spin_rate": 2,
+        "max_hp": 40,
+        "max_shield": 30
+    },
+    "dynamic_info": {
+        "hp": 40,
+        "shield": 25.79999999999994,
+        "position": {
+            "x": 21.258760943017354,
+            "y": 178.32984789401178
+        },
+        "move_speed": 3.0,
+        "barrel_angle": 120.0,
+        "heading": 4.712254960168764,
+        "ammo": {
+            "HEAVY": {
+                "count": 1,
+                "_ammo_type": "HEAVY"
+            },
+            "LIGHT": {
+                "count": 5,
+                "_ammo_type": "LIGHT"
+            },
+            "LONG_DISTANCE": {
+                "count": 10,
+                "_ammo_type": "LONG_DISTANCE"
+            }
+        },
+        "ammo_loaded": "LONG_DISTANCE",
+        "is_overcharged": false,
+        "size": "MISSING",
+        "reload_timer": 0.0,
+        "enemies_remaining": 5,
+        "visible_tanks": [],
+        "visible_enemies": [],
+        "visible_friends": [],
+        "visible_obstacles": [],
+        "visible_terrains": [
+            {
+                "position": {
+                    "x": 15.0,
+                    "y": 185.0
+                },
+                "type": "Grass",
+                "speed_modifier": 1.0,
+                "dmg": 0
+            },
+            {
+                "position": {
+                    "x": 5.0,
+                    "y": 195.0
+                },
+                "type": "Swamp",
+                "speed_modifier": 0.4,
+                "dmg": 0
+            }
+        ],
+        "visible_powerups": []
+    },
+    "meta_info": {
+        "closest_enemy_angle": 10.0,
+        "closest_enemy_dist": 9999.0,
+        "target_id": null,
+        "is_aimed_at": false
+    },
+    "memory": {},
+    "agent_role": {
+        "type": null,
+        "enabled": true
+    },
+    "debug": {
+        "goal_cell": [
+            19,
+            15
+        ],
+        "path": [
+            [
+                2,
+                17
+            ],
+            [
+                2,
+                18
+            ],
+            [
+                2,
+                19
+            ],
+            [
+                3,
+                19
+            ],
+            [
+                4,
+                19
+            ],
+            [
+                5,
+                19
+            ],
+            [
+                6,
+                19
+            ],
+            [
+                7,
+                18
+            ],
+            [
+                8,
+                17
+            ],
+            [
+                9,
+                16
+            ],
+            [
+                10,
+                15
+            ],
+            [
+                10,
+                14
+            ],
+            [
+                11,
+                13
+            ],
+            [
+                12,
+                12
+            ],
+            [
+                13,
+                12
+            ],
+            [
+                14,
+                12
+            ],
+            [
+                15,
+                13
+            ],
+            [
+                16,
+                14
+            ],
+            [
+                17,
+                15
+            ],
+            [
+                18,
+                15
+            ],
+            [
+                19,
+                15
+            ]
+        ],
+        "path_index": 0,
+        "seen_terrain_tiles": [
+            [
+                1,
+                18
+            ],
+            [
+                0,
+                19
+            ]
+        ],
+        "my_pos": {
+            "x": 21.258760943017354,
+            "y": 178.32984789401178
+        },
+        "fov": {
+            "tick": 1980,
+            "origin": {
+                "x": 21.258760943017354,
+                "y": 178.32984789401178
+            },
+            "vr": 120.0,
+            "va": 20.0,
+            "heading": 4.712254960168764,
+            "cells": [
+                [
+                    5,
+                    18
+                ],
+                [
+                    6,
+                    17
+                ],
+                [
+                    6,
+                    18
+                ],
+                [
+                    7,
+                    17
+                ],
+                [
+                    7,
+                    18
+                ],
+                [
+                    8,
+                    17
+                ],
+                [
+                    8,
+                    18
+                ],
+                [
+                    8,
+                    19
+                ],
+                [
+                    9,
+                    17
+                ],
+                [
+                    9,
+                    18
+                ],
+                [
+                    9,
+                    19
+                ],
+                [
+                    10,
+                    17
+                ],
+                [
+                    10,
+                    18
+                ],
+                [
+                    10,
+                    19
+                ],
+                [
+                    11,
+                    17
+                ],
+                [
+                    11,
+                    18
+                ],
+                [
+                    11,
+                    19
+                ],
+                [
+                    12,
+                    17
+                ],
+                [
+                    12,
+                    18
+                ],
+                [
+                    12,
+                    19
+                ],
+                [
+                    12,
+                    20
+                ],
+                [
+                    13,
+                    17
+                ],
+                [
+                    13,
+                    18
+                ],
+                [
+                    13,
+                    19
+                ],
+                [
+                    13,
+                    20
+                ]
+            ],
+            "bbox": [
+                -10,
+                5,
+                14,
+                29
+            ],
+            "rays": [
+                {
+                    "from": {
+                        "x": 21.258760943017354,
+                        "y": 178.32984789401178
+                    },
+                    "to": {
+                        "x": 140.74809284275855,
+                        "y": 167.27093464932574
+                    }
+                },
+                {
+                    "from": {
+                        "x": 21.258760943017354,
+                        "y": 178.32984789401178
+                    },
+                    "to": {
+                        "x": 137.32437548481607,
+                        "y": 208.80562714630665
+                    }
+                }
+            ]
+        },
+        "graph_nodes": null,
+        "start_cell": null,
+        "goal_cell_candidate": null
+    }
+}

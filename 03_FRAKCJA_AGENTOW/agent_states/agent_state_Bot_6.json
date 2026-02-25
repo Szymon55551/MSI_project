@@ -1,0 +1,277 @@
+{
+    "current_tick": 1980,
+    "static_info": {
+        "id": "tank_2_1",
+        "team": 2,
+        "tank_type": "HEAVY",
+        "vision_angle": 60.0,
+        "vision_range": 40.0,
+        "top_speed": 1.0,
+        "barrel_spin_rate": 30,
+        "heading_spin_rate": 2,
+        "max_hp": 120,
+        "max_shield": 80
+    },
+    "dynamic_info": {
+        "hp": 120,
+        "shield": 80,
+        "position": {
+            "x": 172.59584314319835,
+            "y": 20.06737385736759
+        },
+        "move_speed": -1.0,
+        "barrel_angle": 120.0,
+        "heading": 115.48778473235595,
+        "ammo": {
+            "HEAVY": {
+                "count": 5,
+                "_ammo_type": "HEAVY"
+            },
+            "LIGHT": {
+                "count": 10,
+                "_ammo_type": "LIGHT"
+            },
+            "LONG_DISTANCE": {
+                "count": 2,
+                "_ammo_type": "LONG_DISTANCE"
+            }
+        },
+        "ammo_loaded": "LIGHT",
+        "is_overcharged": false,
+        "size": "MISSING",
+        "reload_timer": 0.0,
+        "enemies_remaining": 5,
+        "visible_tanks": [],
+        "visible_enemies": [],
+        "visible_friends": [],
+        "visible_obstacles": [],
+        "visible_terrains": [
+            {
+                "position": {
+                    "x": 145.0,
+                    "y": 5.0
+                },
+                "type": "Swamp",
+                "speed_modifier": 0.4,
+                "dmg": 0
+            },
+            {
+                "position": {
+                    "x": 155.0,
+                    "y": 5.0
+                },
+                "type": "PotholeRoad",
+                "speed_modifier": 0.95,
+                "dmg": 1
+            },
+            {
+                "position": {
+                    "x": 165.0,
+                    "y": 5.0
+                },
+                "type": "PotholeRoad",
+                "speed_modifier": 0.95,
+                "dmg": 1
+            },
+            {
+                "position": {
+                    "x": 165.0,
+                    "y": 15.0
+                },
+                "type": "Swamp",
+                "speed_modifier": 0.4,
+                "dmg": 0
+            }
+        ],
+        "visible_powerups": []
+    },
+    "meta_info": {
+        "closest_enemy_angle": 10.0,
+        "closest_enemy_dist": 9999.0,
+        "target_id": null,
+        "is_aimed_at": false
+    },
+    "memory": {},
+    "agent_role": {
+        "type": null,
+        "enabled": true
+    },
+    "debug": {
+        "goal_cell": [
+            19,
+            19
+        ],
+        "path": [
+            [
+                17,
+                2
+            ],
+            [
+                16,
+                3
+            ],
+            [
+                15,
+                4
+            ],
+            [
+                14,
+                5
+            ],
+            [
+                15,
+                6
+            ],
+            [
+                16,
+                7
+            ],
+            [
+                17,
+                8
+            ],
+            [
+                18,
+                9
+            ],
+            [
+                19,
+                10
+            ],
+            [
+                19,
+                11
+            ],
+            [
+                19,
+                12
+            ],
+            [
+                19,
+                13
+            ],
+            [
+                19,
+                14
+            ],
+            [
+                19,
+                15
+            ],
+            [
+                19,
+                16
+            ],
+            [
+                19,
+                17
+            ],
+            [
+                19,
+                18
+            ],
+            [
+                19,
+                19
+            ]
+        ],
+        "path_index": 0,
+        "seen_terrain_tiles": [
+            [
+                14,
+                0
+            ],
+            [
+                15,
+                0
+            ],
+            [
+                16,
+                0
+            ],
+            [
+                16,
+                1
+            ]
+        ],
+        "my_pos": {
+            "x": 172.59584314319835,
+            "y": 20.06737385736759
+        },
+        "fov": {
+            "tick": 1980,
+            "origin": {
+                "x": 172.59584314319835,
+                "y": 20.06737385736759
+            },
+            "vr": 40.0,
+            "va": 60.0,
+            "heading": 115.48778473235595,
+            "cells": [
+                [
+                    14,
+                    4
+                ],
+                [
+                    15,
+                    3
+                ],
+                [
+                    15,
+                    4
+                ],
+                [
+                    15,
+                    5
+                ],
+                [
+                    16,
+                    3
+                ],
+                [
+                    16,
+                    4
+                ],
+                [
+                    16,
+                    5
+                ],
+                [
+                    17,
+                    5
+                ]
+            ],
+            "bbox": [
+                13,
+                -2,
+                21,
+                6
+            ],
+            "rays": [
+                {
+                    "from": {
+                        "x": 172.59584314319835,
+                        "y": 20.06737385736759
+                    },
+                    "to": {
+                        "x": 175.74270847793653,
+                        "y": 59.94339721182237
+                    }
+                },
+                {
+                    "from": {
+                        "x": 172.59584314319835,
+                        "y": 20.06737385736759
+                    },
+                    "to": {
+                        "x": 139.63562658370802,
+                        "y": 42.73065085676686
+                    }
+                }
+            ]
+        },
+        "graph_nodes": null,
+        "start_cell": null,
+        "goal_cell_candidate": null
+    }
+}
