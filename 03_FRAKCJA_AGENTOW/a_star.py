@@ -17,10 +17,10 @@ def a_star(agent, nodes_dummy, start_cell, goal_cell, max_iterations=2000):
         if ct == 0: return 0.1 
             
         base = 1.0
-        if ct == 5: base = 80.0   
+        if ct == 5: base = 15.0   
         elif ct == 2: base = 60.0  
         elif ct == 6: base = 5.0   
-        elif ct == 4: base = 1.0 
+        elif ct == 4: base = 1.0
         
         return base + cell_data.get("penalty", 0.0)
 

@@ -1,21 +1,16 @@
-import logging
 import numpy as np
 import skfuzzy as fuzz
 from skfuzzy import control as ctrl
-
 
 class FuzzyCombatDecider:
 
     def __init__(
         self,
-        cooldown_ticks=200,
-        ammo_full_scale = 16,
-        attack_threshold=0.55
+        cooldown_ticks=30,
+        ammo_full_scale=16
     ):
         self.cooldown_ticks = cooldown_ticks
         self.ammo_full_scale = ammo_full_scale
-        self.attack_threshold = attack_threshold
-
         self._build_system()
 
         self.last_decision = "attack"
@@ -26,32 +21,37 @@ class FuzzyCombatDecider:
         ammo = ctrl.Antecedent(np.linspace(0, 1, 101), "ammo")
         decision = ctrl.Consequent(np.linspace(0, 1, 101), "decision")
 
-        # HP
+        # HP Antecedents
         hp["low"] = fuzz.trapmf(hp.universe, [0.0, 0.0, 0.20, 0.40])
         hp["medium"] = fuzz.trimf(hp.universe, [0.25, 0.50, 0.75])
         hp["high"] = fuzz.trapmf(hp.universe, [0.60, 0.80, 1.0, 1.0])
 
-        # AMMO
+        # AMMO Antecedents
         ammo["low"] = fuzz.trapmf(ammo.universe, [0.0, 0.0, 0.20, 0.45])
         ammo["medium"] = fuzz.trimf(ammo.universe, [0.25, 0.55, 0.80])
         ammo["high"] = fuzz.trapmf(ammo.universe, [0.65, 0.85, 1.0, 1.0])
 
-        decision["escape"] = fuzz.trapmf(decision.universe, [0.0, 0.0, 0.25, 0.45])
+        # DECISION Consequents
+        decision["escape"] = fuzz.trapmf(decision.universe, [0.0, 0.0, 0.25, 0.40])
+        decision["power_up"] = fuzz.trapmf(decision.universe, [0.30, 0.50, 0.50, 0.70])
         decision["attack"] = fuzz.trapmf(decision.universe, [0.60, 0.75, 1.0, 1.0])
 
+        # RULES MATRIX
         rules = [
-            ctrl.Rule(ammo["low"] & hp["low"], decision["escape"]),
-            ctrl.Rule(ammo["low"] & hp["medium"], decision["escape"]),
-            ctrl.Rule(ammo["medium"] & hp["low"], decision["escape"]),
+            # Critical Status -> Escape
+            ctrl.Rule(hp["low"] & ammo["low"], decision["escape"]),
+            ctrl.Rule(hp["low"] & ammo["medium"], decision["escape"]),
 
-            ctrl.Rule(ammo["high"] & hp["low"], decision["attack"]),
-            ctrl.Rule(ammo["high"] & hp["medium"], decision["attack"]),
-            ctrl.Rule(ammo["high"] & hp["high"], decision["attack"]),
+            # Deficit Status -> Power Up
+            ctrl.Rule(hp["low"] & ammo["high"], decision["power_up"]),
+            ctrl.Rule(hp["medium"] & ammo["low"], decision["power_up"]),
+            ctrl.Rule(hp["medium"] & ammo["medium"], decision["power_up"]),
+            ctrl.Rule(hp["high"] & ammo["low"], decision["power_up"]),
 
-            ctrl.Rule(ammo["medium"] & hp["high"], decision["attack"]),
-            ctrl.Rule(ammo["medium"] & hp["medium"], decision["attack"]),
-
-            ctrl.Rule(ammo["low"] & hp["high"], decision["attack"]),
+            # Optimal Status -> Attack
+            ctrl.Rule(hp["medium"] & ammo["high"], decision["attack"]),
+            ctrl.Rule(hp["high"] & ammo["medium"], decision["attack"]),
+            ctrl.Rule(hp["high"] & ammo["high"], decision["attack"]),
         ]
 
         system = ctrl.ControlSystem(rules)
@@ -60,19 +60,23 @@ class FuzzyCombatDecider:
     def decide(self, agent):
         now = int(getattr(agent, "current_tick", 0))
 
-        # cooldown
+        # Respect cooldown to prevent command oscillation
         if (now - self.last_decision_tick) < int(self.cooldown_ticks):
             return self.last_decision
 
-        hp_r = self._hp_ratio(agent)      
-        ammo_r = self._ammo_ratio(agent)  
-
-        self._sim.input["hp"] = hp_r
-        self._sim.input["ammo"] = ammo_r
+        self._sim.input["hp"] = self._hp_ratio(agent)
+        self._sim.input["ammo"] = self._ammo_ratio(agent)
         self._sim.compute()
+        
         out = float(self._sim.output["decision"])
 
-        decision = "attack" if out >= float(self.attack_threshold) else "escape"
+        # Defuzzification
+        if out <= 0.35:
+            decision = "escape"
+        elif out >= 0.65:
+            decision = "attack"
+        else:
+            decision = "power_up"
 
         self.last_decision = decision
         self.last_decision_tick = now
@@ -82,27 +86,17 @@ class FuzzyCombatDecider:
         dynamic = getattr(agent, "dynamic_info", {}) or {}
         static = getattr(agent, "static_info", {}) or {}
 
-        hp = float(dynamic["hp"])
-        max_hp = float(static["max_hp"])
+        hp = float(dynamic.get("hp", 0))
+        max_hp = float(static.get("max_hp", 1))
 
-        r = hp / max_hp
-        if r < 0.0:
-            r = 0.0
-        if r > 1.0:
-            r = 1.0
-        return r
+        return max(0.0, min(1.0, hp / max_hp))
 
     def _ammo_ratio(self, agent):
         fn = getattr(agent, "_ammo_inventory", None)
-       
-        inv = fn()  
-        total = float(inv["HEAVY"]) + float(inv["LIGHT"]) + float(inv["LONG_DISTANCE"])
+        if not fn:
+            return 0.0
+            
+        inv = fn()
+        total = float(inv.get("HEAVY", 0)) + float(inv.get("LIGHT", 0)) + float(inv.get("LONG_DISTANCE", 0))
 
-        scale = float(self.ammo_full_scale)
-        r = total / scale
-        # clamp
-        if r < 0.0:
-            r = 0.0
-        if r > 1.0:
-            r = 1.0
-        return r
+        return max(0.0, min(1.0, total / float(self.ammo_full_scale)))

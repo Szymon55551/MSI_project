@@ -105,11 +105,7 @@ def update_map_memory(agent, sensors):
                         elif is_mud:
                             set_cell(px, py, 6) 
                         elif is_danger:
-                            # INCREASED HOLE SIZE: 6x6 core instead of 4x4
-                            if 1 <= dx <= 8 and 1 <= dy <= 8:
-                                set_cell(px, py, 5) 
-                            else:
-                                set_cell(px, py, 1)
+                            set_cell(px, py, 5)
                         else:
                             set_cell(px, py, 1)
 

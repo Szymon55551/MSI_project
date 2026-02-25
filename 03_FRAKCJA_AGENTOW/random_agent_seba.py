@@ -153,7 +153,7 @@ class RandomAgent:
         self.SUBDIV = SUBDIV
         self.CELL_SIZE, self._cell_from_xy, self._cell_center = make_grid_helpers(self.TILE_SIZE, self.SUBDIV)
         
-        self.combat_decider = FuzzyCombatDecider()
+        self.combat_decider = FuzzyCombatDecider(cooldown_ticks=30)
     
     def _get(self, d, key, default=None): return d.get(key, default) if isinstance(d, dict) else getattr(d, key, default)
 
@@ -217,7 +217,28 @@ class RandomAgent:
             self._enter_escape(enemy)
             self.mode = "escape"
 
-    def _maybe_reconsider_combat_mode(self, enemy) -> bool: return False
+    def _maybe_reconsider_combat_mode(self, enemy) -> bool:
+        if enemy is None: 
+            return False
+            
+        # Get the fuzzy controller's current optimal decision based on HP and Ammo
+        desired_mode = self.combat_decider.decide(self)
+        
+        # Determine the agent's currently committed mode
+        current_mode = "attack" if self._should_stay_in_attack() else "escape" if self._should_stay_in_escape() else None
+        
+        # If the fuzzy controller dictates a change, break current mode commitments
+        if current_mode and desired_mode != current_mode:
+            self.attack_until_tick = -10_000
+            self.escape_until_tick = -10_000
+            self.escape_target_locked = False
+            return True
+            
+        return False
+    
+    
+    
+    
     def _choose_combat_mode(self, enemy) -> str: return self.combat_decider.decide(self)
     
     def _enter_attack(self, enemy): self.attack_until_tick = max(self.attack_until_tick, self.current_tick + self.attack_commit_ticks)
@@ -790,37 +811,71 @@ class RandomAgent:
     def _process_action(self) -> ActionCommand:
         enemy_now = self._update_attack_memory()
         self._maybe_forget_enemy_target()
-        in_attack, in_escape = self._should_stay_in_attack(), self._should_stay_in_escape()
+        
+        in_attack = self._should_stay_in_attack()
+        in_escape = self._should_stay_in_escape()
 
+        # 1. Combat State Evaluation via Fuzzy Controller
         if enemy_now is not None:
             if in_attack or in_escape:
-                if self._maybe_reconsider_combat_mode(enemy_now): in_attack, in_escape = self._should_stay_in_attack(), self._should_stay_in_escape()
+                # Ask the fuzzy controller if we need to bail out of an attack or stop running
+                if self._maybe_reconsider_combat_mode(enemy_now):
+                    in_attack = self._should_stay_in_attack() # Will now evaluate to False
+                    in_escape = self._should_stay_in_escape() # Will now evaluate to False
+            
+            # If not committed, get the new mode from the fuzzy controller
             if not in_attack and not in_escape:
-                self._commit_mode(self._choose_combat_mode(enemy_now), enemy_now)
-            else:
-                self._commit_mode("escape" if in_escape else "attack", enemy_now)
+                decision = self._choose_combat_mode(enemy_now)
+                self._commit_mode(decision, enemy_now)
 
-        if self._should_stay_in_escape(): MODE = "escape"
-        elif self._should_stay_in_attack(): MODE = "attack"
-        elif self.powerup_target_cell is not None or (self.dynamic_info.get("visible_powerups") or []): MODE = "power_up"
-        else: MODE = "search"
+        # 2. Final Mode Routing
+        if self._should_stay_in_escape():
+            MODE = "escape"
+        elif self._should_stay_in_attack():
+            MODE = "attack"
+        elif self.powerup_target_cell is not None or (self.dynamic_info.get("visible_powerups") or []):
+            MODE = "power_up"
+        else:
+            MODE = "search"
 
         self.mode = MODE
 
+        # 3. Execute Mode Actions
         if MODE == "search":
             self._update_macro_goal()
             hull_rot, move_speed = self.Follow_Path_With_Modifiers()
-            return ActionCommand(barrel_rotation_angle=scan_strategy(self), heading_rotation_angle=hull_rot, move_speed=move_speed, should_fire=False, ammo_to_load=random.choice(["LIGHT", "HEAVY", "LONG_DISTANCE"]))
+            return ActionCommand(
+                barrel_rotation_angle=scan_strategy(self), 
+                heading_rotation_angle=hull_rot, 
+                move_speed=move_speed, 
+                should_fire=False, 
+                ammo_to_load=random.choice(["LIGHT", "HEAVY", "LONG_DISTANCE"])
+            )
 
         if MODE == "power_up":
             pu_goal = self._select_powerup_goal_cell()
             hull_rot, move_speed = self.Follow_Path_With_Modifiers(override_goal_cell=pu_goal) if pu_goal is not None else self.Follow_Path_With_Modifiers()
+            
             if self.powerup_target_cell is not None and self._dist2_to_cell_center(self.powerup_target_cell) <= (self.CELL_SIZE * 0.35) ** 2 and not self._is_target_powerup_visible(self.powerup_target_cell):
-                self.powerup_target_cell, self.current_goal_cell, self.current_path_cost, self.path_to_follow, self.path_index, self.path_stuck_ticks, self.last_forced_replan_tick = None, None, None, None, 0, 0, -10_000
-            return ActionCommand(barrel_rotation_angle=scan_strategy(self), heading_rotation_angle=hull_rot, move_speed=move_speed, should_fire=False, ammo_to_load=random.choice(["LIGHT", "HEAVY", "LONG_DISTANCE"]))
+                self.powerup_target_cell = None
+                self.current_goal_cell = None
+                self.path_to_follow = None
+                self.path_index = 0
+                self.path_stuck_ticks = 0
+                
+            return ActionCommand(
+                barrel_rotation_angle=scan_strategy(self), 
+                heading_rotation_angle=hull_rot, 
+                move_speed=move_speed, 
+                should_fire=False, 
+                ammo_to_load=random.choice(["LIGHT", "HEAVY", "LONG_DISTANCE"])
+            )
 
-        if MODE == "attack": return mode_attack(self, enemy_now)
-        if MODE == "escape": return mode_escape(self, enemy_now)
+        if MODE == "attack": 
+            return mode_attack(self, enemy_now)
+            
+        if MODE == "escape": 
+            return mode_escape(self, enemy_now)
 
     def destroy(self):
         self.is_destroyed = True
