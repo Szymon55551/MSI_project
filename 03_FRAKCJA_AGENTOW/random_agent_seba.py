@@ -383,13 +383,28 @@ class RandomAgent:
                 self.no_move_ticks = 0
                 self.force_change_goal = True # Ensure a new path is calculated when reverse ends
 
+        # ---------------------------------------------------------
+        # DE-INDENTED SECTION: Must execute every tick
+        # ---------------------------------------------------------
         # 3. Process standard strategic action
         action = self._process_action()
 
-        # 4. Kinematic Override if Anti-Stuck is active
+        # 4. Hazard-Aware Kinematic Override if Anti-Stuck is active
         if self.current_tick <= getattr(self, "unstuck_until_tick", -10_000):
-            action.move_speed = -top_speed  # Hard reverse
-            action.heading_rotation_angle = heading_spin * getattr(self, "unstuck_turn_dir", 1.0)
+            # Calculate the coordinate 30 units directly behind the tank
+            back_x = px - math.cos(heading_rad) * self.CELL_SIZE * 3.0
+            back_y = py - math.sin(heading_rad) * self.CELL_SIZE * 3.0
+            back_cell = self._cell_from_xy(back_x, back_y)
+            back_type = self.virtual_map.get(back_cell, {}).get("type", 0)
+            
+            # Prevent reversing into walls or the newly expanded potholes
+            if back_type in [3, 5]: 
+                action.move_speed = 0.0 # Halt reverse to prevent damage/clipping
+                action.heading_rotation_angle = heading_spin # Spin in place to find a new angle
+            else:
+                action.move_speed = -top_speed  # Safe to reverse
+                action.heading_rotation_angle = heading_spin * getattr(self, "unstuck_turn_dir", 1.0)
+                
             action.should_fire = False
 
         self.last_world_pos, self.last_commanded_speed = (px, py), action.move_speed
@@ -463,16 +478,51 @@ class RandomAgent:
         start_cell = self._cell_from_xy(float(self.dynamic_info.get("position", {}).get("x", 0.0)), float(self.dynamic_info.get("position", {}).get("y", 0.0)))
         
         best_path, best_goal, best_cost = None, None, float("inf")
-        for goal in targets:
+        # Increase target evaluation limit to 10. Prevents stalling if the top 3 nodes are inside unreachable terrain.
+        for goal in targets[:10]: 
             path = a_star(self, None, start_cell, goal, max_iterations=6000)
             if path:
                 cost = len(path)
                 if cost < best_cost:
                     best_cost, best_path, best_goal = cost, path, goal
-                # FIX: Stop calculating as soon as we find a valid path. Do not force 3 A* calls.
-                if best_path: break 
                     
-        return best_path, best_goal, best_cost, None
+        return best_path, best_goal, best_cost, None 
+
+    def Follow_Path_With_Modifiers(self, override_goal_cell=None):
+        force = False
+        
+        # 1. Lookahead Obstacle Detection
+        if self.path_to_follow and self.path_index < len(self.path_to_follow):
+            for i in range(self.path_index, min(len(self.path_to_follow), self.path_index + 15)):
+                ctype = self.virtual_map.get(self.path_to_follow[i], {}).get("type", 0)
+                # Omit Type 5 (Danger) from this list. A* evaluates potholes mathematically. 
+                # Aborting paths here due to potholes causes infinite calculation loops.
+                if ctype == 3: 
+                    force = True
+                    break
+                    
+        # 2. Standard completion/failure triggers
+        if self.path_stuck_ticks > MAX_PATH_STUCK_TICKS or self.path_to_follow is None or self.path_index >= len(self.path_to_follow) - 1:
+            force = True
+        if override_goal_cell is not None and override_goal_cell != self.current_goal_cell:
+            force = True
+        if getattr(self, "force_change_goal", False):
+            force = True
+
+        # 3. Execution & Failsafe
+        if force:
+            new_path, new_goal, new_cost, _ = self._Find_Target_and_Find_Path(override_goal_cell)
+            if new_path and new_goal is not None:
+                self.path_to_follow, self.current_goal_cell, self.current_path_cost = new_path, new_goal, new_cost
+                self.path_index, self.path_stuck_ticks, self.force_change_goal = 0, 0, False
+            else:
+                self.path_to_follow = None
+                self.current_goal_cell = None
+                self.force_change_goal = True 
+
+        hull_rot, move_speed = self._FollowPath() if self.path_to_follow is not None else (0.0, 0.0)
+        self.debug_goal_cell, self.debug_path, self.debug_path_index = self.current_goal_cell, self.path_to_follow, self.path_index
+        return hull_rot, move_speed
 
     def _update_macro_goal(self):
         mx, my = float(self._get(self.dynamic_info.get("position", {}), "x", 0.0)), float(self._get(self.dynamic_info.get("position", {}), "y", 0.0))
@@ -481,7 +531,7 @@ class RandomAgent:
         needs_new_goal = False
         if not hasattr(self, "macro_target_world") or self.macro_target_world[0] is None:
             needs_new_goal = True
-        elif (self.current_tick - getattr(self, "macro_target_tick", 0)) > 600:
+        elif (self.current_tick - getattr(self, "macro_target_tick", 0)) > 400: # Faster adaptation
             needs_new_goal = True
         elif math.hypot(self.macro_target_world[0] - mx, self.macro_target_world[1] - my) < 20.0:
             needs_new_goal = True
@@ -491,43 +541,34 @@ class RandomAgent:
         if not needs_new_goal:
             return
 
-        # 2. Map Chunking (10x10 blocks of 20x20 cells)
-        chunk_scores = {} 
+        # 2. Center of Mass Calculation for the Fog of War
+        sum_x, sum_y = 0, 0
+        unknown_count = 0
         
-        # Fast pass over the map to score regions
+        # Fast iteration over the pre-allocated virtual map
         for (cx, cy), data in self.virtual_map.items():
-            ctype = data.get("type", 0)
-            # Evaluate Unknowns (0) and Trees (4)
-            if ctype == 0 or ctype == 4: 
-                chunk_x, chunk_y = cx // 20, cy // 20
-                if (chunk_x, chunk_y) not in chunk_scores:
-                    chunk_scores[(chunk_x, chunk_y)] = 0
-                # Trees are worth 0.5 points, pure fog of war is worth 1.0 point
-                chunk_scores[(chunk_x, chunk_y)] += (1.0 if ctype == 0 else 0.5)
-        
-        # 3. Select the optimal chunk based on Utility (Score minus Distance penalty)
-        best_chunk = None
-        best_utility = -float('inf')
-        
-        for (chunk_x, chunk_y), score in chunk_scores.items():
-            if score < 15: continue # Ignore heavily explored chunks to prevent stalling
-            
-            wx = (chunk_x * 20 + 10) * self.CELL_SIZE
-            wy = (chunk_y * 20 + 10) * self.CELL_SIZE
-            
-            dist = math.hypot(wx - mx, wy - my)
-            # Weigh the exploration density against the travel cost
-            utility = score - (dist * 0.4) 
-            
-            if utility > best_utility:
-                best_utility = utility
-                best_chunk = (chunk_x, chunk_y)
+            if data.get("type", 0) == 0:
+                sum_x += cx
+                sum_y += cy
+                unknown_count += 1
                 
-        # 4. Fallback constraint: Converge on center if map is explored
-        if best_chunk is None:
-            self.macro_target_world = (1000.0, 1000.0) 
+        # 3. Target Assignment
+        if unknown_count < 100: 
+            # Fallback: Map is effectively fully explored, patrol center
+            self.macro_target_world = (100.0 * self.CELL_SIZE, 100.0 * self.CELL_SIZE)
         else:
-            self.macro_target_world = ((best_chunk[0] * 20 + 10) * self.CELL_SIZE, (best_chunk[1] * 20 + 10) * self.CELL_SIZE)
+            avg_x = sum_x / unknown_count
+            avg_y = sum_y / unknown_count
+            
+            # Apply Gaussian noise to prevent the agent from getting stuck 
+            # trying to reach a mathematical center that is inside a solid wall
+            target_cx = int(random.gauss(avg_x, 20.0))
+            target_cy = int(random.gauss(avg_y, 20.0))
+            
+            target_cx = max(0, min(199, target_cx))
+            target_cy = max(0, min(199, target_cy))
+            
+            self.macro_target_world = self._cell_center((target_cx, target_cy))
             
         self.macro_target_tick = self.current_tick
 

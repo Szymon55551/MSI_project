@@ -50,22 +50,20 @@ def update_dynamic_info(agent, status, sensors):
     }
 
 def update_map_memory(agent, sensors):
-    # Initialize with default penalty of 0.0
     if not hasattr(agent, "virtual_map") or len(agent.virtual_map) < 40000:
         agent.virtual_map = {(x, y): {"type": 0, "tick": 0, "penalty": 0.0} for x in range(200) for y in range(200)}
         
     MAX_CELL = 199
     
-    # --- NEW: Precomputation helper ---
-    def apply_penalty(cx, cy, is_danger):
-        penalty_value = 5.0 if is_danger else 10.0
+    # Restrict penalty application strictly to walls. No aura for potholes.
+    def apply_penalty(cx, cy):
+        penalty_value = 10.0
         for p_dx in range(-2, 3):
             for p_dy in range(-2, 3):
                 if p_dx == 0 and p_dy == 0: continue
                 pen_x, pen_y = cx + p_dx, cy + p_dy
                 if 0 <= pen_x <= MAX_CELL and 0 <= pen_y <= MAX_CELL:
                     target = agent.virtual_map.get((pen_x, pen_y))
-                    # Apply penalty only to traversable terrain
                     if target and target.get("type", 0) not in [3, 5]:
                         current_penalty = target.get("penalty", 0.0)
                         target["penalty"] = min(30.0, current_penalty + penalty_value)
@@ -74,9 +72,6 @@ def update_map_memory(agent, sensors):
         if 0 <= x <= MAX_CELL and 0 <= y <= MAX_CELL:
             agent.virtual_map[(x, y)]["type"] = c_type
             agent.virtual_map[(x, y)]["tick"] = agent.current_tick
-            # --- NEW: Trigger penalty for danger ---
-            if c_type == 5:
-                apply_penalty(x, y, is_danger=True)
 
     # 1. Update Terrains
     for t in (agent._get(sensors, "seen_terrains", []) or []):
@@ -108,10 +103,10 @@ def update_map_memory(agent, sensors):
                         if is_water:
                             set_cell(px, py, 2)
                         elif is_mud:
-                            set_cell(px, py, 6) # Mud type
+                            set_cell(px, py, 6) 
                         elif is_danger:
-                            # 4x4 red core, otherwise green safe zone
-                            if 3 <= dx <= 6 and 3 <= dy <= 6:
+                            # INCREASED HOLE SIZE: 6x6 core instead of 4x4
+                            if 1 <= dx <= 8 and 1 <= dy <= 8:
                                 set_cell(px, py, 5) 
                             else:
                                 set_cell(px, py, 1)
@@ -134,17 +129,15 @@ def update_map_memory(agent, sensors):
                 for dy in range(10):
                     set_cell(bx + dx, by + dy, 4)
         else:
-            # WALLS: Persistent update. Do not clear once set.
-            for dx in range(-3, 13): # Buffer inflation
+            for dx in range(-3, 13): 
                 for dy in range(-3, 13):
                     px, py = bx + dx, by + dy
                     if 0 <= px <= MAX_CELL and 0 <= py <= MAX_CELL:
-                        # Only update if not already a wall to save cycles
                         if agent.virtual_map[(px, py)].get("type", 0) != 3:
                             agent.virtual_map[(px, py)]["type"] = 3
                             agent.virtual_map[(px, py)]["tick"] = agent.current_tick
-                            # --- NEW: Trigger penalty for wall ---
-                            apply_penalty(px, py, is_danger=False)
+                            # Trigger penalty exclusively for wall formations
+                            apply_penalty(px, py)
 
     # 3. Clean up destructibles
     my_pos = agent.dynamic_info.get("position", {})
