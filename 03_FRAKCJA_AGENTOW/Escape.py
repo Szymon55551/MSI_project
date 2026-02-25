@@ -3,6 +3,9 @@ from scan_strategy import scan_strategy
 import math
 import random
 from pydantic import BaseModel
+from a_star import a_star
+from collections import deque
+
 
 class ActionCommand(BaseModel):
     barrel_rotation_angle: float = 0.0
@@ -11,45 +14,66 @@ class ActionCommand(BaseModel):
     ammo_to_load: str = None
     should_fire: bool = False
 
-def _astar(agent, nodes, goal_cell):
+def plan_farthest_escape_path_each_tick(agent, enemy_cell, max_candidates=None):
+    if enemy_cell is None: return None, None, None
+    ex, ey = enemy_cell
+    
     my_pos = agent.dynamic_info.get("position", {})
     start_cell = agent._cell_from_xy(float(my_pos.get("x", 0.0)), float(my_pos.get("y", 0.0)))
-    from a_star import a_star
-    return a_star(agent, nodes, start_cell, goal_cell)
+    vmap = getattr(agent, "virtual_map", {})
 
-def plan_farthest_escape_path_each_tick(agent, enemy_cell, max_candidates=60):
-    nodes = agent._build_graph()
-    if not nodes: return None, None, None
+    queue = deque([start_cell])
+    visited = {start_cell}
+    came_from = {start_cell: None}
+    
+    # 4-way expansion is much faster for BFS grid searches
+    DIRS = [(1,0), (-1,0), (0,1), (0,-1)] 
+    
+    best_goal = None
+    best_score = -1.0
+    
+    # Cap to prevent lag. 600 nodes is plenty for a fast tactical retreat.
+    max_bfs_nodes = 600 
+    nodes_searched = 0
 
-    node_by_cell = {n.cell: n for n in nodes}
-    if not node_by_cell: return None, None, None
+    while queue and nodes_searched < max_bfs_nodes:
+        current = queue.popleft()
+        nodes_searched += 1
+        
+        ct = vmap.get(current, {}).get("type", 0)
+        
+        # Track the node that maximizes distance to the enemy
+        if ct in [1, 6]: # Safe terrains
+            dist_sq = (current[0] - ex)**2 + (current[1] - ey)**2
+            if dist_sq > best_score:
+                best_score = dist_sq
+                best_goal = current
+                
+        # Expand neighbors
+        for dx, dy in DIRS:
+            nb = (current[0] + dx, current[1] + dy)
+            if nb not in visited and (0 <= nb[0] <= 199 and 0 <= nb[1] <= 199):
+                nb_ct = vmap.get(nb, {}).get("type", 0)
+                # Avoid walls, water, and danger zones during escape
+                if nb_ct not in [2, 3, 5]: 
+                    visited.add(nb)
+                    came_from[nb] = current
+                    queue.append(nb)
 
-    if enemy_cell not in node_by_cell:
-        exw, eyw = agent._cell_center(enemy_cell)
-        best, best_d2 = None, 1e30
-        for c, n in node_by_cell.items():
-            d2 = (n.world[0] - exw) ** 2 + (n.world[1] - eyw) ** 2
-            if d2 < best_d2: best_d2, best = d2, c
-        enemy_cell = best
-        if enemy_cell is None: return None, None, None
+    # Reconstruct the path directly from BFS without using A*
+    if best_goal is None:
+        return None, None, None
 
-    ex, ey = enemy_cell
-    safe = [n for n in nodes if not n.blocked and not n.hole and not n.water]
-    if not safe: return None, None, None
-
-    safe.sort(key=lambda n: (n.cell[0] - ex) ** 2 + (n.cell[1] - ey) ** 2, reverse=True)
-    best_path, best_goal, best_score, best_len = None, None, -1.0, -1
-
-    for n in safe[:max_candidates]:
-        goal = n.cell
-        path = _astar(agent, nodes, goal)
-        if not path or len(path) < 10: continue
-
-        d2 = (goal[0] - ex) ** 2 + (goal[1] - ey) ** 2
-        if (d2 > best_score) or (d2 == best_score and len(path) > best_len):
-            best_score, best_len, best_path, best_goal = float(d2), int(len(path)), path, goal
-
-    return best_path, best_goal, best_score
+    path = []
+    curr = best_goal
+    while curr is not None:
+        path.append(curr)
+        curr = came_from[curr]
+    
+    # Reverse to go from start to goal
+    path = path[::-1]
+    
+    return path, best_goal, best_score
 
 def _escape_target_reached(agent) -> bool:
     goal = getattr(agent, "escape_target_cell", None)
@@ -58,7 +82,7 @@ def _escape_target_reached(agent) -> bool:
     pos = agent.dynamic_info.get("position") or {}
     mx, my = float(pos.get("x", 0.0)), float(pos.get("y", 0.0))
     gx, gy = agent._cell_center(goal)
-    return math.hypot(gx - mx, gy - my) <= (0.75 * agent.CELL_SIZE)
+    return math.hypot(gx - mx, gy - my) <= (1.5 * agent.CELL_SIZE)
 
 def mode_escape(agent, enemy_now) -> ActionCommand:
     barrel_rot = scan_strategy(agent)

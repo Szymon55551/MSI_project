@@ -3,6 +3,9 @@ import math
 import random
 from pydantic import BaseModel
 from a_star import a_star
+from collections import deque
+
+
 
 class ActionCommand(BaseModel):
     barrel_rotation_angle: float = 0.0
@@ -11,41 +14,47 @@ class ActionCommand(BaseModel):
     ammo_to_load: str = None
     should_fire: bool = False
 
-def select_orbit_cell_based_on_ammo(agent, nodes, enemy_cell, r_ammo_world, band_ratio=0.1, max_candidates=60):
-    if not nodes or enemy_cell is None or r_ammo_world is None: return None
-    node_by_cell = {n.cell: n for n in nodes}
-    if not node_by_cell: return None
-
-    if enemy_cell not in node_by_cell:
-        exw, eyw = agent._cell_center(enemy_cell)
-        best, best_d2 = None, 1e30
-        for c, n in node_by_cell.items():
-            d2 = (n.world[0] - exw) ** 2 + (n.world[1] - eyw) ** 2
-            if d2 < best_d2: best_d2, best = d2, c
-        enemy_cell = best
-    if enemy_cell is None: return None
-
+def select_orbit_cell_based_on_ammo(agent, enemy_cell, r_ammo_world, band_ratio=0.1):
+    if enemy_cell is None or r_ammo_world is None: return None
+    
     r_cells = float(r_ammo_world) / float(agent.CELL_SIZE)
     band = max(1.0, band_ratio * r_cells)  
-    r_min, r_max = max(0.0, r_cells - band), r_cells + band
+    r_min_sq = (r_cells - band) ** 2
+    r_max_sq = (r_cells + band) ** 2
     ex, ey = enemy_cell
-    candidates = []
-
-    for c, n in node_by_cell.items():
-        if n.blocked or n.hole or n.water: continue
-        cx, cy = c
-        d = math.hypot(cx - ex, cy - ey)
-        if r_min <= d <= r_max: candidates.append(c)
-
-    if not candidates: return None
-    random.shuffle(candidates)
     
     my_pos = agent.dynamic_info.get("position", {})
     start_cell = agent._cell_from_xy(float(my_pos.get("x", 0.0)), float(my_pos.get("y", 0.0)))
+    vmap = getattr(agent, "virtual_map", {})
+
+    # Early-exit BFS
+    queue = deque([start_cell])
+    visited = {start_cell}
+    DIRS = [(1,0), (-1,0), (0,1), (0,-1)] # 4-way expansion is faster
     
-    for goal in candidates[:max_candidates]:
-        path = a_star(agent, nodes, start_cell, goal)
-        if path and len(path) >= 2: return goal
+    max_bfs_nodes = 800 # Cap search to prevent freezing
+    nodes_searched = 0
+
+    while queue and nodes_searched < max_bfs_nodes:
+        current = queue.popleft()
+        nodes_searched += 1
+        
+        # Check if current node satisfies orbit criteria
+        dist_sq = (current[0] - ex)**2 + (current[1] - ey)**2
+        if r_min_sq <= dist_sq <= r_max_sq:
+            # First valid cell found is the closest via accessible path
+            return current
+            
+        # Expand neighbors
+        for dx, dy in DIRS:
+            nb = (current[0] + dx, current[1] + dy)
+            if nb not in visited and (0 <= nb[0] <= 199 and 0 <= nb[1] <= 199):
+                ct = vmap.get(nb, {}).get("type", 0)
+                # Treat Walls(3), Water(2), Danger(5) as hard blocks for targeting
+                if ct not in [2, 3, 5]: 
+                    visited.add(nb)
+                    queue.append(nb)
+                    
     return None
 
 def mode_attack(agent, enemy_now):
@@ -121,8 +130,8 @@ def mode_attack(agent, enemy_now):
         if agent.attack_jitter_mode == "strafe": hull_rot = agent._clamp(hull_rot + agent.attack_jitter_sign * 0.25 * heading_spin, -heading_spin, heading_spin)
     else:
         if agent.attack_jitter_mode != "pause":
-            nodes = agent._build_graph()
-            orbit_goal = select_orbit_cell_based_on_ammo(agent, nodes, enemy_cell, r_ammo_world=r_orbit_world, band_ratio=0.1, max_candidates=60)
+            #nodes = agent._build_graph()
+            orbit_goal = select_orbit_cell_based_on_ammo(agent, enemy_cell, r_ammo_world=r_orbit_world, band_ratio=0.1, max_candidates=30)
             if orbit_goal is not None and agent.attack_jitter_mode in ("orbit", "strafe"):
                 hull_rot, move_speed = agent.Follow_Path_With_Modifiers(override_goal_cell=orbit_goal)
                 move_speed *= (1.0 + agent.attack_speed_jitter)

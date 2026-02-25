@@ -50,15 +50,33 @@ def update_dynamic_info(agent, status, sensors):
     }
 
 def update_map_memory(agent, sensors):
-    # Initialize 200x200 map at 1x1 pixel resolution
+    # Initialize with default penalty of 0.0
     if not hasattr(agent, "virtual_map") or len(agent.virtual_map) < 40000:
-        agent.virtual_map = {(x, y): {"type": 0, "tick": 0} for x in range(200) for y in range(200)}
+        agent.virtual_map = {(x, y): {"type": 0, "tick": 0, "penalty": 0.0} for x in range(200) for y in range(200)}
         
     MAX_CELL = 199
     
+    # --- NEW: Precomputation helper ---
+    def apply_penalty(cx, cy, is_danger):
+        penalty_value = 5.0 if is_danger else 10.0
+        for p_dx in range(-2, 3):
+            for p_dy in range(-2, 3):
+                if p_dx == 0 and p_dy == 0: continue
+                pen_x, pen_y = cx + p_dx, cy + p_dy
+                if 0 <= pen_x <= MAX_CELL and 0 <= pen_y <= MAX_CELL:
+                    target = agent.virtual_map.get((pen_x, pen_y))
+                    # Apply penalty only to traversable terrain
+                    if target and target.get("type", 0) not in [3, 5]:
+                        current_penalty = target.get("penalty", 0.0)
+                        target["penalty"] = min(30.0, current_penalty + penalty_value)
+
     def set_cell(x, y, c_type):
         if 0 <= x <= MAX_CELL and 0 <= y <= MAX_CELL:
-            agent.virtual_map[(x, y)] = {"type": c_type, "tick": agent.current_tick}
+            agent.virtual_map[(x, y)]["type"] = c_type
+            agent.virtual_map[(x, y)]["tick"] = agent.current_tick
+            # --- NEW: Trigger penalty for danger ---
+            if c_type == 5:
+                apply_penalty(x, y, is_danger=True)
 
     # 1. Update Terrains
     for t in (agent._get(sensors, "seen_terrains", []) or []):
@@ -73,18 +91,13 @@ def update_map_memory(agent, sensors):
         speed = float(t.get("speed_modifier", t.get("movement_speed_modifier", t.get("_movement_speed_modifier", 1.0))))
         dmg = int(t.get("dmg", t.get("deal_damage", t.get("_deal_damage", 0))))
         
-        is_water, is_danger = False, False
-        if "WATER" in t_str or "SWAMP" in t_str:
-            is_water = True
-        elif "POTHOLE" in t_str or "DANGER" in t_str:
-            is_danger = True
-        elif "ROAD" in t_str or "GRASS" in t_str:
-            pass
-        else:
-            # Stricter numerical fallback
-            if dmg > 0 and speed <= 0.75: is_water = True
-            elif dmg > 0: is_danger = True
-            elif speed <= 0.5: is_water = True
+        is_water, is_danger, is_mud = False, False, False
+        if "WATER" in t_str: is_water = True
+        elif "SWAMP" in t_str or "MUD" in t_str: is_mud = True
+        elif "POTHOLE" in t_str or "DANGER" in t_str: is_danger = True
+        elif speed <= 0.75 and dmg > 0: is_water = True
+        elif dmg > 0: is_danger = True
+        elif speed <= 0.75: is_mud = True
 
         for dx in range(10):
             for dy in range(10):
@@ -94,36 +107,44 @@ def update_map_memory(agent, sensors):
                     if existing not in [3, 4]: 
                         if is_water:
                             set_cell(px, py, 2)
+                        elif is_mud:
+                            set_cell(px, py, 6) # Mud type
                         elif is_danger:
-                            # 4x4 red core (indices 3,4,5,6), otherwise green
+                            # 4x4 red core, otherwise green safe zone
                             if 3 <= dx <= 6 and 3 <= dy <= 6:
-                                set_cell(px, py, 5)
+                                set_cell(px, py, 5) 
                             else:
                                 set_cell(px, py, 1)
                         else:
                             set_cell(px, py, 1)
 
-    # 2. Update Obstacles
+    # 2. Update Obstacles (Persistent Walls)
     seen_obs_tiles = set()
     for ob in (agent._get(sensors, "seen_obstacles", []) or []):
         pos = ob.get("position", {}) or {}
         cx, cy = float(pos.get("x", 0.0)), float(pos.get("y", 0.0))
-        
         bx, by = int(cx // 10) * 10, int(cy // 10) * 10
         seen_obs_tiles.add((bx, by))
         
-        o_raw = ob.get("type", ob.get("obstacle_type", ob.get("_obstacle_type", "WALL")))
-        if isinstance(o_raw, dict): o_raw = o_raw.get('name', 'WALL')
-        
-        if "TREE" in str(o_raw).upper():
+        o_raw = ob.get("type", ob.get("obstacle_type", "WALL"))
+        is_tree = "TREE" in str(o_raw).upper()
+
+        if is_tree:
             for dx in range(10):
                 for dy in range(10):
                     set_cell(bx + dx, by + dy, 4)
         else:
-            # Wall inflation: Expand boundaries by 3 pixels in all directions
-            for dx in range(-3, 13):
+            # WALLS: Persistent update. Do not clear once set.
+            for dx in range(-3, 13): # Buffer inflation
                 for dy in range(-3, 13):
-                    set_cell(bx + dx, by + dy, 3)
+                    px, py = bx + dx, by + dy
+                    if 0 <= px <= MAX_CELL and 0 <= py <= MAX_CELL:
+                        # Only update if not already a wall to save cycles
+                        if agent.virtual_map[(px, py)].get("type", 0) != 3:
+                            agent.virtual_map[(px, py)]["type"] = 3
+                            agent.virtual_map[(px, py)]["tick"] = agent.current_tick
+                            # --- NEW: Trigger penalty for wall ---
+                            apply_penalty(px, py, is_danger=False)
 
     # 3. Clean up destructibles
     my_pos = agent.dynamic_info.get("position", {})
@@ -132,15 +153,22 @@ def update_map_memory(agent, sensors):
     
     if vr > 0:
         cells_to_clear = []
-        for (px, py), data in agent.virtual_map.items():
-            if data["type"] in [3, 4]:
-                bx, by = (px // 10) * 10, (py // 10) * 10
-                tcx, tcy = bx + 5.0, by + 5.0
-                if agent._is_in_vision(tcx, tcy) and (bx, by) not in seen_obs_tiles:
-                    cells_to_clear.append((px, py))
+        min_x = max(0, int(mx - vr))
+        max_x = min(199, int(mx + vr))
+        min_y = max(0, int(my - vr))
+        max_y = min(199, int(my + vr))
+        
+        for px in range(min_x, max_x + 1):
+            for py in range(min_y, max_y + 1):
+                if agent.virtual_map.get((px, py), {}).get("type") == 4: 
+                    bx, by = (px // 10) * 10, (py // 10) * 10
+                    tcx, tcy = bx + 5.0, by + 5.0
+                    if agent._is_in_vision(tcx, tcy) and (bx, by) not in seen_obs_tiles:
+                        cells_to_clear.append((px, py))
         
         for (px, py) in cells_to_clear:
-            agent.virtual_map[(px, py)] = {"type": 1, "tick": agent.current_tick}
+            agent.virtual_map[(px, py)]["type"] = 1
+            agent.virtual_map[(px, py)]["tick"] = agent.current_tick
 
 def update_enemy_memory(agent):
     now = int(agent.current_tick)
