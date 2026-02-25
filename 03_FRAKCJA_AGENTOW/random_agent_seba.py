@@ -4,13 +4,13 @@ import sys
 import os
 import math
 import itertools
-from scan_strategy import scan_strategy
-from agent_memory_update import update_internal_state
-from debug_agent import save_state_to_file
-from Attack import mode_attack
-from Escape import mode_escape
-from Fuzzy_Controller import FuzzyCombatDecider
-from a_star import a_star
+from Lib.scan_strategy import scan_strategy
+from Lib.agent_memory_update import update_internal_state
+
+from Lib.Attack import mode_attack
+from Lib.Escape import mode_escape
+from Lib.Fuzzy_Controller import FuzzyCombatDecider
+from Lib.a_star import a_star
 import numpy as np
 import matplotlib
 matplotlib.use('Agg')
@@ -451,8 +451,8 @@ class RandomAgent:
         # 4. Hazard-Aware Kinematic Override if Anti-Stuck is active
         if self.current_tick <= getattr(self, "unstuck_until_tick", -10_000):
             # Calculate the coordinate 30 units directly behind the tank
-            back_x = px - math.cos(heading_rad) * self.CELL_SIZE * 3.0
-            back_y = py - math.sin(heading_rad) * self.CELL_SIZE * 3.0
+            back_x = max(0.0, min(199.0, px - math.cos(heading_rad) * self.CELL_SIZE * 3.0))
+            back_y = max(0.0, min(199.0, py - math.sin(heading_rad) * self.CELL_SIZE * 3.0))
             back_cell = self._cell_from_xy(back_x, back_y)
             back_type = self.virtual_map.get(back_cell, {}).get("type", 0)
             
