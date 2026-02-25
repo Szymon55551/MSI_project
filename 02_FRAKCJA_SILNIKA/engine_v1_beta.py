@@ -71,9 +71,9 @@ AMMO_RANGE_WORLD = {
 
 
 # --- Stałe Konfiguracyjne Grafiki ---
-LOG_LEVEL = "DEBUG"
+LOG_LEVEL = "CRITICAL"
 #MAP_SEED = "road_trees.csv"
-MAP_SEED = "road_trees.csv"
+MAP_SEED = "advanced_road_trees.csv"
 TARGET_FPS = 60
 SCALE = 3.5 # Współczynnik skalowania grafiki (wszystko będzie 4x większe)
 TILE_SIZE = 10  # To MUSI być zgodne z domyślną wartością w map_loader.py
@@ -81,13 +81,17 @@ AGENT_NAME = "random_agent.py" # Nazwa pliku agenta
 
 AGENT_FILES = [
     "random_agent_seba.py",
-    "random_agent_seba.py",
+    #"random_agent_seba.py",
+    #"random_agent_seba.py",
+    "random_agent_seba.py"
 
 ]
 
 ARGUMENTS = [
     "2",
-    "2",    
+   # "2",
+   # "2",   
+    "2"    
 
 ]
 
@@ -618,27 +622,6 @@ def draw_tank(
 
         pygame.draw.rect(surface, (50, 50, 50), (hp_bar_x, hp_bar_y, hp_bar_width, hp_bar_height))
         pygame.draw.rect(surface, (0, 255, 0), (hp_bar_x, hp_bar_y, hp_bar_width * hp_ratio, hp_bar_height))
-
-    # role expected: "Leader" / "Follower" (or None)
-    if role in ("Leader", "Follower"):
-        badge_char = "L" if role == "Leader" else "F"
-
-        # position above tank
-        bx = int(center_pos[0])
-        by = int(center_pos[1] - 35)
-
-        # colors (simple + readable)
-        bg = (0, 0, 0)
-        fg = (255, 255, 255)
-        ring = team_color  # ring matches team
-
-        pygame.draw.circle(surface, bg, (bx, by), 10)
-        pygame.draw.circle(surface, ring, (bx, by), 10, 2)
-
-        badge_font = pygame.font.Font(None, 20)
-        txt = badge_font.render(badge_char, True, fg)
-        rect = txt.get_rect(center=(bx, by))
-        surface.blit(txt, rect)
 
     # --- DEBUG: heading vector vs velocity vector ---
     cx, cy = center_pos
@@ -1312,8 +1295,8 @@ def main():
                 seen_tiles = dbg.get("seen_terrain_tiles", [])
                 fov_dbg = dbg.get("fov")
 
-                draw_seen_terrain_tiles(map_surface, seen_tiles, SCALE, map_render_height, alpha=0.25)
-                draw_graph_nodes(map_surface, dbg, SCALE, map_render_height, fov_dbg=fov_dbg, alpha=60)
+                #draw_seen_terrain_tiles(map_surface, seen_tiles, SCALE, map_render_height, alpha=0.25)
+                #draw_graph_nodes(map_surface, dbg, SCALE, map_render_height, fov_dbg=fov_dbg, alpha=60)
                 draw_start_goal(map_surface, dbg, SCALE, map_render_height)
                 draw_agent_debug_path(map_surface, dbg, SCALE, map_render_height)
             # ====================================================

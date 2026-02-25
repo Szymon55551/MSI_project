@@ -1,111 +1,101 @@
 import heapq
-import random
+import itertools
 
-
-DMG_PENALTY = 4000   #koszt za 1 pkt obrazen
-BASE_MOVE_COST = 1  #koszt ruchu o 1 kratke
-SLOW_TERRAIN_PENALTY_WEIGHT = 75
-STRAIGHT_PENALTY = 2  #koszt za jazdę prosto
-DANGEROUS_NEIGHBOUR_PENALTY = 20 #Kara za to ze jestesmy bezposrednio obok niebezpiecznej kratki
-
-def a_star(agent, nodes, goal_cell):
-    if not nodes:
+def a_star(agent, nodes, start_cell, goal_cell, max_iterations=2000):
+    if not nodes or start_cell is None or goal_cell is None: 
         return None
         
     node_by_cell = {n.cell: n for n in nodes}
-    
-    
-    if goal_cell not in node_by_cell:
-        print(f"[A*] goal {goal_cell} not in graph (nodes={len(node_by_cell)})")
-
-        return None
-    
-        
-    # Znajdź start
-    my_pos = agent.dynamic_info.get("position", {"x": 0.0, "y": 0.0})
-    sx, sy = float(my_pos.get("x", 0.0)), float(my_pos.get("y", 0.0))
-    
-    start_cell = None
-    best_dist = float('inf')
-    
-    for cell, node in node_by_cell.items():
-        wx, wy = node.world
-        d2 = (wx-sx)**2 + (wy-sy)**2
-        if d2 < best_dist:
-            best_dist = d2
-            start_cell = cell
-            
-    if start_cell is None:
+    if start_cell not in node_by_cell or goal_cell not in node_by_cell:
         return None
 
-    print("start_cell", start_cell)
-    print("goal_cell", goal_cell)
-    
-    
-    print("[A*] nodes:", len(node_by_cell))
-    print("[A*] start deg:", len(node_by_cell[start_cell].neighbors))
-    print("[A*] goal deg:", len(node_by_cell[goal_cell].neighbors))
+    if node_by_cell[goal_cell].blocked:
+        return None
 
-    # Funkcja heurystyki
+    # Chebyshev distance for 8-way grid admissibility + Vector cross-product tie-breaker
     def heuristic(c):
-        return abs(c[0] - goal_cell[0]) + abs(c[1] - goal_cell[1])
+        dx = abs(c[0] - goal_cell[0])
+        dy = abs(c[1] - goal_cell[1])
+        
+        # Tie-breaker strictly enforces preference for the direct line of sight
+        cross = abs((c[0] - start_cell[0]) * (goal_cell[1] - start_cell[1]) - 
+                    (goal_cell[0] - start_cell[0]) * (c[1] - start_cell[1]))
+        
+        return max(dx, dy) + (cross * 0.001)
 
-    # f_score = g_score + h_score
+    counter = itertools.count()
+    start_state = (start_cell, 0) # Track tuple of (current_node, water_count)
     start_h = heuristic(start_cell)
-    queue = [(start_h, 0.0, [start_cell])]
     
-    # Słownik najlepszych kosztów dotarcia do pola (g_score)
-    g_scores = {start_cell: 0.0}
+    # Queue: (f_score, tie_breaker, current_g, current_cell, water_count)
+    queue = [(start_h, next(counter), 0.0, start_cell, 0)]
+    g_scores = {start_state: 0.0}
     
-    # Cache dla szumu (żeby nie generować w pętli)
-    noise_map = {cell: random.uniform(0.0, 0.5) for cell in node_by_cell}
+    # Track node ancestry for O(N) path reconstruction instead of O(N^2) list cloning
+    came_from = {}
 
-    while queue:
-        # heapq.heappop jest O(1) - wyciąga element o najniższym f_score
-        f, current_g, path = heapq.heappop(queue)
-        current_node = path[-1]
+    iterations = 0
+    while queue and iterations < max_iterations:
+        iterations += 1
+        f, _, current_g, current_node, water_count = heapq.heappop(queue)
+        
+        current_state = (current_node, water_count)
 
         if current_node == goal_cell:
-            return path
+            path = []
+            curr = current_state
+            while curr in came_from:
+                path.append(curr[0])
+                curr = came_from[curr]
+            path.append(start_cell)
+            return path[::-1] # Reverse the traced ancestry
         
-        # Jeśli znaleźliśmy już szybszą drogę do tego węzła w międzyczasie -> skip
-        if current_g > g_scores.get(current_node, float('inf')):
+        if current_g > g_scores.get(current_state, float('inf')):
             continue
 
-        # Sprawdzanie sąsiadów
-        for neighbour in node_by_cell[current_node].neighbors:
+        curr_n = node_by_cell[current_node]
+        for neighbour in curr_n.neighbors:
             neighbor_node = node_by_cell[neighbour]
             
-            # --- Logika Kosztów ---
-            
-            # Soft Block dla ścian (umożliwia ucieczkę z inflacji)
-            obst_penalty = 100000.0 if neighbor_node.blocked else 0.0
-            
-            # Teren i obrażenia
-            speed_loss = max(0.0, 1.0 - neighbor_node.speed)
-            move_cost = BASE_MOVE_COST + (speed_loss * SLOW_TERRAIN_PENALTY_WEIGHT)
-            move_cost += float(neighbor_node.dmg) * DMG_PENALTY
-            # move_cost += noise_map.get(neighbour, 0.0)
-            move_cost += obst_penalty
-            
-            if neighbor_node.is_risk:
-                move_cost += DANGEROUS_NEIGHBOUR_PENALTY
+            if neighbor_node.blocked and neighbour != start_cell:
+                continue
+                
+            new_water_count = water_count + (1 if neighbor_node.is_water else 0)
+            if new_water_count > 2: 
+                continue
+            if neighbour == goal_cell and neighbor_node.is_water: 
+                continue
 
-            # Straight Line Penalty
-            if len(path) >= 2:
-                prev = path[-2]
-                curr = current_node
-                nxt = neighbour
-                if (curr[0]-prev[0], curr[1]-prev[1]) == (nxt[0]-curr[0], nxt[1]-curr[1]):
-                    move_cost += STRAIGHT_PENALTY
+            move_cost = 1.0
+            
+            if neighbor_node.dmg > 0:
+                move_cost += 100.0  
+            if neighbor_node.speed < 0.9:
+                move_cost += 3.0 
+
+            v_type = getattr(agent, "virtual_map", {}).get(neighbour, {}).get("type", 1)
+            if v_type == 4: 
+                move_cost += 15.0
+
+            margin_penalty = 0.0
+            for nn in neighbor_node.neighbors:
+                if nn in node_by_cell and node_by_cell[nn].blocked:
+                    margin_penalty += 2.0 
+            move_cost += margin_penalty
+            
+            # Turning penalty lookup via ancestor map
+            if current_state in came_from:
+                prev_node = came_from[current_state][0]
+                if (current_node[0]-prev_node[0], current_node[1]-prev_node[1]) != (neighbour[0]-current_node[0], neighbour[1]-current_node[1]):
+                    move_cost += 0.2
 
             new_g = current_g + move_cost
+            neighbor_state = (neighbour, new_water_count)
 
-            # Relaksacja krawędzi
-            if new_g < g_scores.get(neighbour, float('inf')):
-                g_scores[neighbour] = new_g
+            if new_g < g_scores.get(neighbor_state, float('inf')):
+                came_from[neighbor_state] = current_state
+                g_scores[neighbor_state] = new_g
                 new_f = new_g + heuristic(neighbour)
-                heapq.heappush(queue, (new_f, new_g, path + [neighbour]))
+                heapq.heappush(queue, (new_f, next(counter), new_g, neighbour, new_water_count))
                 
     return None
-
