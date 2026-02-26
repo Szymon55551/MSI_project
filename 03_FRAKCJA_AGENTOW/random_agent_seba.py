@@ -422,9 +422,15 @@ class RandomAgent:
             dist_moved = math.hypot(px - lx, py - ly)
             
             # 1. Track immobility mathematically
-            if dist_moved < self.MIN_MOVE_EPS: 
-                self.no_move_ticks += 1
-            else: 
+            # CRITICAL FIX: Only increment stuck counter if we ACTUALLY commanded movement.
+            # If the tank is pivoting in place (speed == 0), it is not stuck!
+            if abs(self.last_commanded_speed) > 0.01:
+                if dist_moved < self.MIN_MOVE_EPS: 
+                    self.no_move_ticks += 1
+                else: 
+                    self.no_move_ticks = 0
+            else:
+                # Tank is legally rotating. Reset to avoid accumulating false positives over many turns.
                 self.no_move_ticks = 0
 
             # Physics engine clip prevention
@@ -714,9 +720,10 @@ class RandomAgent:
         
         dist_sq = (tx - my_x)**2 + (ty - my_y)**2
         
-        # Acceptance radius: 3.0 units (3^2 = 9.0). 
-        # If within this radius, mark as reached and advance the index immediately.
-        if dist_sq <= 25.0:
+        # INCREASED ACCEPTANCE RADIUS: 16.0 units (4.0^2 = 16.0).
+        # Prevents "waypoint orbiting" where the tank overshoots a tiny radius,
+        # stops, spins 180 degrees, and gets locked in an infinite correction loop.
+        if dist_sq <= 16.0:
             self.path_index += 1
             self.path_stuck_ticks = 0
             
@@ -742,17 +749,19 @@ class RandomAgent:
         heading_spin = float(self.static_info.get("heading_spin_rate", 2.0))
         top_speed = float(self.static_info.get("top_speed", 1.0))
         
-        # 4. Strict Robotic Deadband
-        if abs(err) > 5.0:
+        # 4. STRICT ROBOTIC DEADBAND
+        if abs(err) > 3.0:
             # ROTATION STATE: Halt translation entirely to pivot in place.
             move_speed = 0.0
             hull_rot = self._clamp(err, -heading_spin, heading_spin)
         else:
-            # TRANSLATION STATE: Push forward. Minor angular error allows for micro-corrections.
+            # TRANSLATION STATE: Push forward cleanly.
             move_speed = top_speed
-            hull_rot = self._clamp(err, -heading_spin, heading_spin)
+            # ZERO-ROTATION LOCK: Prevent micro-vibrations across the 180-degree boundary
+            hull_rot = 0.0 
             
         return hull_rot, move_speed
+            
     
     
 
